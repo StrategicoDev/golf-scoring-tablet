@@ -1,0 +1,1185 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Golf Tablet Scoring</title>
+  <style>
+    :root {
+      --bg: #04100a;
+      --panel: rgba(3, 11, 7, .88);
+      --panel-2: rgba(7, 20, 13, .92);
+      --line: #1f7d43;
+      --line-soft: rgba(69, 164, 96, .45);
+      --green: #1fb756;
+      --green-2: #14893f;
+      --green-3: #2ce06a;
+      --red: #b74834;
+      --ink: #e8f2ec;
+      --muted: #88a596;
+      --cell: #cbd7e8;
+      --cell-focus: #e7effa;
+      --dark-cell: #0b1710;
+      --blue: #1377ff;
+      --shadow: 0 14px 40px rgba(0,0,0,.38);
+      --radius: 12px;
+      font-family: Inter, Roboto, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { height: 100%; }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% -20%, rgba(36, 151, 75, .23), transparent 38%), var(--bg);
+      color: var(--ink);
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button, input, select {
+      font: inherit;
+    }
+
+    button {
+      min-height: 44px;
+      border: 1px solid var(--line-soft);
+      border-radius: 9px;
+      background: linear-gradient(180deg, #0e1d13, #06110b);
+      color: var(--ink);
+      padding: 10px 14px;
+      cursor: pointer;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+    }
+
+    button:active { transform: translateY(1px); }
+    button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid rgba(44,224,106,.35); outline-offset: 2px; }
+
+    .primary {
+      background: linear-gradient(180deg, #25bf5c, #148840);
+      border-color: #35df70;
+      color: #ecfff3;
+      font-weight: 700;
+    }
+
+    .danger {
+      background: linear-gradient(180deg, #c85842, #8f2e22);
+      border-color: rgba(255, 127, 101, .55);
+      color: #fff2ee;
+      font-weight: 800;
+    }
+
+    .ghost {
+      background: rgba(0,0,0,.35);
+      color: var(--muted);
+    }
+
+    .app {
+      width: 100vw;
+      height: 100vh;
+      min-width: 980px;
+      min-height: 620px;
+      display: grid;
+      grid-template-rows: 26px 64px 1fr;
+      background: linear-gradient(180deg, rgba(14, 61, 28, .16), transparent 34%), #06110b;
+    }
+
+    .statusbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+      height: 26px;
+      background: linear-gradient(90deg, #17803a, #0f632c);
+      color: rgba(255,255,255,.82);
+      font-size: 12px;
+      letter-spacing: .03em;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: 180px minmax(230px, 1fr) auto auto auto auto auto auto 54px 36px;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 12px;
+      background: rgba(1, 6, 4, .9);
+      border-bottom: 1px solid rgba(42, 158, 76, .7);
+      box-shadow: var(--shadow);
+    }
+
+    .course-btn { text-align: left; color: #b8d3c3; }
+    .title {
+      color: var(--green-3);
+      font-size: clamp(17px, 2vw, 22px);
+      font-weight: 750;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding-left: 4px;
+    }
+
+    .pill {
+      min-height: 42px;
+      display: inline-grid;
+      place-items: center;
+      border: 1px solid var(--line-soft);
+      border-radius: 9px;
+      background: #08130d;
+      color: #cde2d7;
+      padding: 0 12px;
+      white-space: nowrap;
+      font-weight: 650;
+    }
+
+    .topbar button { white-space: nowrap; min-height: 42px; }
+    .tab-label { color: #9fb9ac; text-align: center; font-weight: 700; }
+    .unit { color: #9fb9ac; text-align: center; }
+
+    .main {
+      display: grid;
+      grid-template-columns: minmax(410px, 43%) 1fr;
+      gap: 12px;
+      padding: 12px;
+      min-height: 0;
+    }
+
+    .map-card, .distance-card, .score-wrap, .hole-editor {
+      border: 1px solid rgba(46, 150, 78, .75);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .map-card {
+      position: relative;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    #map {
+      position: absolute;
+      inset: 0;
+      cursor: crosshair;
+      background:
+        radial-gradient(ellipse at 49% 14%, rgba(216,218,194,.9) 0 4%, transparent 4.3%),
+        radial-gradient(ellipse at 82% 18%, rgba(218,219,198,.78) 0 6%, transparent 6.4%),
+        radial-gradient(ellipse at 72% 44%, rgba(218,219,198,.72) 0 5%, transparent 5.4%),
+        radial-gradient(ellipse at 24% 27%, rgba(218,219,198,.72) 0 4%, transparent 4.4%),
+        radial-gradient(ellipse at 54% 48%, rgba(62,130,64,.88) 0 19%, transparent 20%),
+        linear-gradient(104deg, rgba(36,58,42,.95) 0 21%, rgba(71,111,64,.8) 21% 33%, rgba(67,119,66,.96) 33% 65%, rgba(29,62,40,.95) 65% 100%);
+    }
+
+    #map::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(90deg, rgba(0,0,0,.42) 0 18%, transparent 18% 75%, rgba(0,0,0,.28) 75%),
+        radial-gradient(circle at 18% 70%, rgba(6,26,14,.86) 0 15%, transparent 16%),
+        radial-gradient(circle at 83% 70%, rgba(7,30,16,.75) 0 17%, transparent 18%),
+        repeating-linear-gradient(92deg, rgba(255,255,255,.025) 0 2px, transparent 2px 9px);
+      mix-blend-mode: multiply;
+      pointer-events: none;
+    }
+
+    #map::after {
+      content: "Fallback map · add Google Maps key for live satellite";
+      position: absolute;
+      left: 10px;
+      bottom: 8px;
+      color: rgba(255,255,255,.62);
+      font-size: 11px;
+      text-shadow: 0 1px 2px #000;
+      pointer-events: none;
+    }
+
+    #googleMap {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      display: none;
+      background: #102015;
+    }
+
+    #map.google-active { background: #102015; }
+    #map.google-active #googleMap { display: block; }
+    #map.google-active::before,
+    #map.google-active::after { display: none; }
+    #map.google-active .overlay,
+    #map.google-active #distLabels,
+    #map.google-active #markerLayer { display: none; }
+
+    .gps-panel {
+      position: absolute;
+      left: 10px;
+      right: 10px;
+      bottom: 10px;
+      z-index: 8;
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 8px;
+      align-items: center;
+      padding: 8px;
+      border: 1px solid rgba(46, 150, 78, .65);
+      border-radius: 10px;
+      background: rgba(3, 11, 7, .86);
+      backdrop-filter: blur(8px);
+      color: #dff8e7;
+      font-size: 12px;
+    }
+    .gps-status { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .gps-panel button { min-height: 34px; padding: 6px 10px; font-size: 12px; }
+
+    .map-tool, .map-layer {
+      position: absolute;
+      z-index: 3;
+      width: 42px;
+      height: 42px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      font-size: 20px;
+      background: rgba(218, 229, 237, .9);
+      color: #1e2a35;
+      border-color: rgba(255,255,255,.5);
+    }
+    .map-tool { right: 10px; top: 10px; }
+    .map-layer { left: 10px; top: 10px; border-radius: 50%; }
+
+    .marker {
+      position: absolute;
+      z-index: 5;
+      width: 26px;
+      height: 26px;
+      transform: translate(-50%, -100%);
+      filter: drop-shadow(0 4px 3px rgba(0,0,0,.6));
+      pointer-events: none;
+    }
+    .marker::before {
+      content: "";
+      position: absolute;
+      inset: 1px 3px 7px;
+      background: #d6452e;
+      border: 2px solid rgba(76, 13, 7, .35);
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+    }
+    .marker::after {
+      content: "";
+      position: absolute;
+      width: 7px; height: 7px;
+      left: 9px; top: 7px;
+      border-radius: 50%;
+      background: rgba(71, 16, 9, .58);
+    }
+    .marker.tee::before { background: #dc432d; }
+    .marker.green::before { background: #db3928; }
+    .marker.layup::before { background: #e8b634; }
+    .marker.you::before { background: #2a92ff; }
+
+    svg.overlay { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 4; pointer-events: none; }
+    .dist-label {
+      position: absolute;
+      z-index: 6;
+      transform: translate(-50%, -50%);
+      padding: 3px 7px;
+      background: rgba(4,11,8,.88);
+      border: 1px solid rgba(38,125,238,.75);
+      border-radius: 7px;
+      color: #b7d4ff;
+      font-size: 12px;
+      font-weight: 800;
+      text-shadow: 0 1px 1px #000;
+    }
+
+    .side {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 10px;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    .top-panels {
+      display: grid;
+      grid-template-columns: minmax(330px, 1.15fr) minmax(260px, .85fr);
+      gap: 10px;
+    }
+
+    .distance-card { padding: 13px 14px; }
+    .section-title {
+      color: #2ed968;
+      font-size: 13px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .distance-grid {
+      display: grid;
+      gap: 5px;
+      font-size: clamp(20px, 2.25vw, 27px);
+      line-height: 1.1;
+      color: #d9e6df;
+      letter-spacing: .01em;
+    }
+    .distance-grid .divider { height: 1px; background: rgba(159,185,172,.25); margin: 5px 0; }
+    .muted { color: #a5b6ad; }
+
+    .controls {
+      display: grid;
+      grid-template-rows: repeat(3, 1fr) 1fr;
+      gap: 9px;
+    }
+
+    .controls button { width: 100%; }
+    .nav-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    .score-wrap {
+      min-height: 0;
+      overflow: auto;
+      padding: 8px 9px 10px;
+    }
+
+    .score-head, .score-row {
+      display: grid;
+      grid-template-columns: 38px minmax(156px, 1.7fr) 66px 70px 70px 70px 70px 80px 70px;
+      gap: 7px;
+      align-items: end;
+      min-width: 790px;
+    }
+
+    .score-head {
+      color: #9cb5a8;
+      font-weight: 800;
+      margin-bottom: 5px;
+      font-size: 13px;
+    }
+
+    .group {
+      text-align: center;
+      border: 1px solid rgba(105, 139, 123, .35);
+      border-bottom: 0;
+      border-radius: 10px 10px 0 0;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      color: #718478;
+    }
+    .group.hole { grid-column: 4 / 6; }
+    .group.total { grid-column: 6 / 10; }
+    .label-row {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: 38px minmax(156px, 1.7fr) 66px 70px 70px 70px 70px 80px 70px;
+      gap: 7px;
+      align-items: center;
+    }
+
+    .score-row {
+      margin: 7px 0;
+      align-items: center;
+    }
+
+    .mini-btn {
+      width: 32px;
+      height: 32px;
+      min-height: 32px;
+      padding: 0;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+      font-weight: 900;
+      justify-self: center;
+    }
+
+    .name-input {
+      background: linear-gradient(180deg, #25be5b, #12863c);
+      color: white;
+      border: 1px solid #3fe173;
+      border-radius: 9px;
+      min-height: 45px;
+      text-align: center;
+      padding: 8px 10px;
+      font-weight: 750;
+      width: 100%;
+    }
+
+    .score-input, .readonly-cell, .hole-select, .number-input {
+      min-height: 52px;
+      width: 100%;
+      border-radius: 9px;
+      border: 1px solid #526273;
+      background: linear-gradient(180deg, var(--cell-focus), var(--cell));
+      color: #0f172a;
+      text-align: center;
+      font-size: 20px;
+      font-weight: 850;
+      padding: 6px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 4px 10px rgba(0,0,0,.22);
+    }
+
+    .readonly-cell {
+      display: grid;
+      place-items: center;
+    }
+
+    .score-input::-webkit-outer-spin-button,
+    .score-input::-webkit-inner-spin-button,
+    .number-input::-webkit-outer-spin-button,
+    .number-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+    .hole-editor {
+      display: grid;
+      grid-template-columns: 1fr 110px 110px 145px minmax(210px, .8fr) 112px 112px;
+      gap: 8px;
+      align-items: end;
+      padding: 10px;
+    }
+    .field label { display:block; color: #91aa9d; font-size: 12px; margin: 0 0 4px; font-weight: 800; }
+    .field input, .field select {
+      width: 100%; min-height: 44px; border-radius: 8px;
+      border: 1px solid rgba(69,164,96,.45);
+      background: #08140d; color: var(--ink); padding: 8px 10px;
+    }
+
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 99;
+      padding: 12px 16px;
+      background: rgba(9, 25, 15, .96);
+      border: 1px solid rgba(58, 203, 102, .7);
+      color: #dff8e7;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: .22s ease;
+      pointer-events: none;
+      font-weight: 700;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    .active-mode { box-shadow: 0 0 0 3px rgba(44,224,106,.35), inset 0 1px 0 rgba(255,255,255,.2); }
+
+    @media (max-width: 1050px) {
+      .topbar { grid-template-columns: 155px 1fr auto auto auto 92px 92px 92px 42px 28px; gap: 5px; }
+      .topbar button, .pill { padding-inline: 8px; font-size: 12px; }
+      .main { grid-template-columns: 42% 58%; gap: 8px; padding: 8px; }
+      .distance-grid { font-size: 20px; }
+      .score-head, .score-row, .label-row { grid-template-columns: 34px 145px 58px 62px 62px 62px 62px 70px 62px; gap: 5px; min-width: 650px; }
+      .score-input, .readonly-cell, .number-input { min-height: 47px; font-size: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="statusbar">
+      <div id="clock">4:42</div>
+      <div>GPS · Wi‑Fi · 94%</div>
+    </div>
+
+    <header class="topbar">
+      <button class="course-btn" id="courseBtn">Course: Paarl-Winelands</button>
+      <div class="title" id="title">Paarl-Winelands · Hole 1</div>
+      <div class="pill" id="parPill">Par 5</div>
+      <div class="pill" id="siPill">SI 8</div>
+      <div class="pill" id="modePill">Stroke Play</div>
+      <button id="newGame">New Game</button>
+      <button id="saveGame">Save Game</button>
+      <button id="loadGame">Load Game</button>
+      <div class="tab-label">Card</div>
+      <div class="unit">m</div>
+    </header>
+
+    <main class="main">
+      <section class="map-card" aria-label="Hole map">
+        <div id="map">
+          <div id="googleMap" aria-label="Live Google satellite map"></div>
+          <button class="map-layer" id="mapTypeBtn" title="Toggle map type">◒</button>
+          <button class="map-tool" id="locateBtn" title="Start live GPS">⌖</button>
+          <svg class="overlay" id="overlay" viewBox="0 0 1000 1000" preserveAspectRatio="none"></svg>
+          <div id="distLabels"></div>
+          <div id="markerLayer"></div>
+          <div class="gps-panel">
+            <div class="gps-status" id="gpsStatus">Google Maps not loaded · enter API key below</div>
+            <button id="centerOnGps">Center GPS</button>
+            <button id="stopGps">Stop GPS</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="side">
+        <div class="top-panels">
+          <div class="distance-card">
+            <div class="section-title">Distances</div>
+            <div class="distance-grid">
+              <div>Tee → Green: <span id="teeGreen">—</span></div>
+              <div>Tee → Layup: <span id="teeLayup">—</span></div>
+              <div>Layup → Green: <span id="layupGreen">—</span></div>
+              <div class="divider"></div>
+              <div>You → Green: <span id="youGreen">—</span></div>
+              <div>You → Layup: <span id="youLayup">—</span></div>
+            </div>
+          </div>
+
+          <div class="controls">
+            <button class="primary" id="setTee">Set Tee</button>
+            <button class="ghost" id="setLayup">Set Layup</button>
+            <button class="ghost" id="clearLayup">Clear Layup</button>
+            <div class="nav-row">
+              <button class="primary" id="prevHole">&lt;&lt; Prev</button>
+              <button class="primary" id="nextHole">Next &gt;&gt;</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="score-wrap">
+          <div class="score-head">
+            <button class="mini-btn primary" id="addPlayer">+</button>
+            <div>Name</div>
+            <div>Hdcp</div>
+            <div class="group hole">Hole</div>
+            <div class="group total">Total</div>
+            <div class="label-row">
+              <div></div><div></div><div></div>
+              <div>Score</div><div>Points</div>
+              <div>Gross</div><div>Net</div><div>Points</div><div>Game</div>
+            </div>
+          </div>
+          <div id="scoreRows"></div>
+        </div>
+
+        <div class="hole-editor">
+          <div class="field">
+            <label>Course name</label>
+            <input id="courseName" value="Paarl-Winelands" />
+          </div>
+          <div class="field">
+            <label>Par</label>
+            <input class="number-input" id="holePar" type="number" min="3" max="6" value="5" />
+          </div>
+          <div class="field">
+            <label>Stroke index</label>
+            <input class="number-input" id="holeSi" type="number" min="1" max="18" value="8" />
+          </div>
+          <div class="field">
+            <label>Map tap mode</label>
+            <select id="tapMode">
+              <option value="green">Set Green</option>
+              <option value="tee">Set Tee</option>
+              <option value="layup">Set Layup</option>
+              <option value="you">Set You</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Google Maps API key</label>
+            <input id="mapsApiKey" placeholder="Paste browser key once" autocomplete="off" />
+          </div>
+          <button class="primary" id="loadGoogleMaps">Load Maps</button>
+          <button class="primary" id="startGps">Start GPS</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="./config.js"></script>
+  <script>
+    const STORAGE_KEY = 'strategico-golf-tablet-scorecard-v1';
+    const CONFIG = window.GOLF_APP_CONFIG || {};
+    const PAARL_CENTER = { lat: -33.7546, lng: 18.9706 };
+    const defaultHoles = Array.from({ length: 18 }, (_, i) => {
+      const offset = (i % 6) * 0.00028;
+      return {
+        number: i + 1,
+        par: [5,4,3,4,4,5,3,4,4,4,5,3,4,4,5,3,4,4][i],
+        strokeIndex: [8,14,18,2,10,4,16,6,12,7,1,17,5,11,3,15,9,13][i],
+        tee: { x: 50, y: 78, lat: PAARL_CENTER.lat - 0.00105 + offset, lng: PAARL_CENTER.lng - 0.00012 },
+        green: { x: 50, y: 15, lat: PAARL_CENTER.lat + 0.00105 + offset, lng: PAARL_CENTER.lng + 0.00012 },
+        layup: null,
+        you: { x: 56, y: 87, lat: PAARL_CENTER.lat - 0.00132 + offset, lng: PAARL_CENTER.lng + 0.00018 }
+      };
+    });
+
+    let gmap = null;
+    let googleReady = false;
+    let watchId = null;
+    let gMarkers = {};
+    let gLines = {};
+    let gpsAccuracyCircle = null;
+
+    const state = {
+      course: 'Paarl-Winelands',
+      scoringMode: 'Stroke Play',
+      units: 'm',
+      currentHole: 1,
+      holes: defaultHoles,
+      players: [
+        { id: crypto.randomUUID(), name: 'Player 1', handicap: 0, scores: { 1: 6 } },
+        { id: crypto.randomUUID(), name: 'Player 2', handicap: 36, scores: { 1: 9 } }
+      ],
+      activeMapMode: 'green',
+      googleMapsApiKey: CONFIG.googleMapsApiKey || '',
+      supabaseUrl: CONFIG.supabaseUrl || '',
+      supabaseAnonKey: CONFIG.supabaseAnonKey || '',
+      currentCloudGameId: '',
+      liveGps: false,
+      mapType: 'satellite'
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+    const hole = () => state.holes[state.currentHole - 1];
+    const fmtDistance = (d) => Number.isFinite(d) ? `${Math.round(d)} m` : '—';
+    const fmtGame = (n) => n > 0 ? `+${n}` : `${n}`;
+
+    function toast(message) {
+      const el = $('toast');
+      el.textContent = message;
+      el.classList.add('show');
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(() => el.classList.remove('show'), 1800);
+    }
+
+    function meterDistance(a, b) {
+      if (!a || !b) return NaN;
+      if (Number.isFinite(a.lat) && Number.isFinite(a.lng) && Number.isFinite(b.lat) && Number.isFinite(b.lng)) {
+        const R = 6371000;
+        const toRad = deg => deg * Math.PI / 180;
+        const dLat = toRad(b.lat - a.lat);
+        const dLng = toRad(b.lng - a.lng);
+        const lat1 = toRad(a.lat);
+        const lat2 = toRad(b.lat);
+        const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+        return 2 * R * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+      }
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+      return Math.sqrt(dx * dx + dy * dy) * 3.43;
+    }
+
+    function toLatLng(point) {
+      if (!point || !Number.isFinite(point.lat) || !Number.isFinite(point.lng)) return null;
+      return { lat: point.lat, lng: point.lng };
+    }
+
+    function pointFromLatLng(latLng, fallback = {}) {
+      const lat = typeof latLng.lat === 'function' ? latLng.lat() : latLng.lat;
+      const lng = typeof latLng.lng === 'function' ? latLng.lng() : latLng.lng;
+      return { ...fallback, lat: Number(lat), lng: Number(lng) };
+    }
+
+    function updateGpsStatus(message) {
+      const el = $('gpsStatus');
+      if (el) el.textContent = message;
+    }
+
+    function strokesForHole(handicap, si) {
+      const h = Math.max(0, Number(handicap) || 0);
+      const base = Math.floor(h / 18);
+      const extra = h % 18;
+      return base + (si <= extra ? 1 : 0);
+    }
+
+    function stableford(net, par) {
+      if (!Number.isFinite(net)) return 0;
+      return Math.max(0, par - net + 2);
+    }
+
+    function calcPlayer(player) {
+      let grossTotal = 0;
+      let netTotal = 0;
+      let pointsTotal = 0;
+      let parTotal = 0;
+      let holeGross = Number(player.scores[state.currentHole]) || 0;
+      let holeStrokes = strokesForHole(player.handicap, hole().strokeIndex);
+      let holeNet = holeGross ? holeGross - holeStrokes : 0;
+      let holePoints = holeGross ? stableford(holeNet, hole().par) : 0;
+
+      for (let i = 1; i <= state.currentHole; i++) {
+        const h = state.holes[i - 1];
+        const gross = Number(player.scores[i]) || 0;
+        if (!gross) continue;
+        const strokes = strokesForHole(player.handicap, h.strokeIndex);
+        const net = gross - strokes;
+        grossTotal += gross;
+        netTotal += net;
+        pointsTotal += stableford(net, h.par);
+        parTotal += h.par;
+      }
+
+      return { holeGross, holeNet, holePoints, grossTotal, netTotal, pointsTotal, game: netTotal - parTotal };
+    }
+
+    function supabaseConfigured() {
+      return Boolean(state.supabaseUrl && state.supabaseAnonKey);
+    }
+
+    function supabaseHeaders(extra = {}) {
+      return {
+        apikey: state.supabaseAnonKey,
+        Authorization: `Bearer ${state.supabaseAnonKey}`,
+        'Content-Type': 'application/json',
+        ...extra
+      };
+    }
+
+    function cloudPayload() {
+      return {
+        name: `${state.course} · ${new Date().toLocaleDateString()}`,
+        course: state.course,
+        current_hole: state.currentHole,
+        scoring_mode: state.scoringMode,
+        players: state.players,
+        holes: state.holes
+      };
+    }
+
+    async function saveCloud() {
+      if (!supabaseConfigured()) return false;
+      const base = state.supabaseUrl.replace(/\/$/, '');
+      const isUpdate = Boolean(state.currentCloudGameId);
+      const url = isUpdate
+        ? `${base}/rest/v1/golf_games?id=eq.${encodeURIComponent(state.currentCloudGameId)}&select=*`
+        : `${base}/rest/v1/golf_games?select=*`;
+      const response = await fetch(url, {
+        method: isUpdate ? 'PATCH' : 'POST',
+        headers: supabaseHeaders({ Prefer: 'return=representation' }),
+        body: JSON.stringify(cloudPayload())
+      });
+      if (!response.ok) throw new Error(await response.text());
+      const rows = await response.json();
+      if (rows?.[0]?.id) state.currentCloudGameId = rows[0].id;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      return true;
+    }
+
+    async function loadCloudLatest() {
+      if (!supabaseConfigured()) { toast('Supabase not configured'); return false; }
+      const base = state.supabaseUrl.replace(/\/$/, '');
+      const response = await fetch(`${base}/rest/v1/golf_games?select=*&order=updated_at.desc&limit=1`, {
+        headers: supabaseHeaders()
+      });
+      if (!response.ok) throw new Error(await response.text());
+      const rows = await response.json();
+      if (!rows.length) { toast('No cloud game found'); return false; }
+      const row = rows[0];
+      state.currentCloudGameId = row.id;
+      state.course = row.course || state.course;
+      state.currentHole = row.current_hole || 1;
+      state.scoringMode = row.scoring_mode || state.scoringMode;
+      state.players = (row.players || []).map((p) => ({ id: p.id || crypto.randomUUID(), ...p }));
+      state.holes = (row.holes?.length ? row.holes : defaultHoles).map((h, i) => ({ ...defaultHoles[i], ...h }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      render();
+      toast('Loaded latest cloud game');
+      return true;
+    }
+
+    async function saveLocal() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      try {
+        const cloud = await saveCloud();
+        toast(cloud ? 'Game saved locally + Supabase' : 'Game saved locally');
+      } catch (e) {
+        console.error(e);
+        toast('Saved locally · Supabase failed');
+      }
+    }
+
+    function loadLocal(silent = false) {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) { if (!silent) toast('No saved game found'); return; }
+      try {
+        const saved = JSON.parse(raw);
+        Object.assign(state, saved);
+        state.supabaseUrl = CONFIG.supabaseUrl || state.supabaseUrl || '';
+        state.supabaseAnonKey = CONFIG.supabaseAnonKey || state.supabaseAnonKey || '';
+        state.googleMapsApiKey = CONFIG.googleMapsApiKey || state.googleMapsApiKey || '';
+        state.holes = state.holes.map((h, i) => ({ ...defaultHoles[i], ...h }));
+        render();
+        if (!silent) toast('Game loaded locally');
+      } catch (e) {
+        console.error(e);
+        toast('Could not load saved game');
+      }
+    }
+
+    function resetGame() {
+      if (!confirm('Start a new blank game? Current local changes will stay only if saved.')) return;
+      state.currentHole = 1;
+      state.holes = JSON.parse(JSON.stringify(defaultHoles));
+      state.players = [
+        { id: crypto.randomUUID(), name: 'Player 1', handicap: 0, scores: {} },
+        { id: crypto.randomUUID(), name: 'Player 2', handicap: 0, scores: {} }
+      ];
+      render();
+      toast('New game ready');
+    }
+
+    function renderHeader() {
+      const h = hole();
+      $('title').textContent = `${state.course} · Hole ${state.currentHole}`;
+      $('courseBtn').textContent = `Course: ${state.course}`;
+      $('parPill').textContent = `Par ${h.par}`;
+      $('siPill').textContent = `SI ${h.strokeIndex}`;
+      $('modePill').textContent = state.scoringMode;
+      $('courseName').value = state.course;
+      $('holePar').value = h.par;
+      $('holeSi').value = h.strokeIndex;
+      $('tapMode').value = state.activeMapMode;
+      if ($('mapsApiKey')) $('mapsApiKey').value = state.googleMapsApiKey || '';
+      $('setTee').classList.toggle('active-mode', state.activeMapMode === 'tee');
+      $('setLayup').classList.toggle('active-mode', state.activeMapMode === 'layup');
+      $('locateBtn').classList.toggle('active-mode', state.activeMapMode === 'you');
+    }
+
+    function renderDistances() {
+      const h = hole();
+      $('teeGreen').textContent = fmtDistance(meterDistance(h.tee, h.green));
+      $('teeLayup').textContent = fmtDistance(meterDistance(h.tee, h.layup));
+      $('layupGreen').textContent = fmtDistance(meterDistance(h.layup, h.green));
+      $('youGreen').textContent = fmtDistance(meterDistance(h.you, h.green));
+      $('youLayup').textContent = fmtDistance(meterDistance(h.you, h.layup));
+    }
+
+    function markerHTML(point, cls) {
+      if (!point) return '';
+      return `<div class="marker ${cls}" style="left:${point.x}%;top:${point.y}%"></div>`;
+    }
+
+    function lineSvg(a, b, color = '#1377ff', dashed = false) {
+      if (!a || !b) return '';
+      return `<line x1="${a.x * 10}" y1="${a.y * 10}" x2="${b.x * 10}" y2="${b.y * 10}" stroke="${color}" stroke-width="8" stroke-linecap="round" ${dashed ? 'stroke-dasharray="18 14"' : ''} />`;
+    }
+
+    function labelHTML(a, b, text) {
+      if (!a || !b || text === '—') return '';
+      return `<div class="dist-label" style="left:${(a.x + b.x) / 2}%;top:${(a.y + b.y) / 2}%">${text}</div>`;
+    }
+
+    function renderMap() {
+      const h = hole();
+      $('overlay').innerHTML = `
+        ${lineSvg(h.tee, h.green)}
+        ${lineSvg(h.tee, h.layup, '#e8b634', true)}
+        ${lineSvg(h.layup, h.green, '#e8b634', true)}
+        ${lineSvg(h.you, h.green, '#58aaff', true)}
+      `;
+      $('markerLayer').innerHTML = [
+        markerHTML(h.green, 'green'), markerHTML(h.tee, 'tee'), markerHTML(h.layup, 'layup'), markerHTML(h.you, 'you')
+      ].join('');
+      $('distLabels').innerHTML = [
+        labelHTML(h.tee, h.green, fmtDistance(meterDistance(h.tee, h.green))),
+        labelHTML(h.tee, h.layup, fmtDistance(meterDistance(h.tee, h.layup))),
+        labelHTML(h.layup, h.green, fmtDistance(meterDistance(h.layup, h.green)))
+      ].join('');
+      renderGoogleMap();
+    }
+
+    function markerIcon(color, scale = 1) {
+      if (!window.google) return null;
+      return {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 9 * scale,
+        fillColor: color,
+        fillOpacity: 1,
+        strokeColor: '#ffffff',
+        strokeWeight: 2
+      };
+    }
+
+    function ensureGoogleObjects() {
+      if (!googleReady || !gmap) return;
+      const markerDefs = {
+        tee: '#e3422c',
+        green: '#22c55e',
+        layup: '#e8b634',
+        you: '#268dff'
+      };
+      Object.entries(markerDefs).forEach(([key, color]) => {
+        if (!gMarkers[key]) {
+          gMarkers[key] = new google.maps.Marker({ map: gmap, title: key, icon: markerIcon(color, key === 'you' ? 1.25 : 1) });
+        }
+      });
+      const lineDefs = {
+        teeGreen: { color: '#1377ff', dashed: false },
+        teeLayup: { color: '#e8b634', dashed: true },
+        layupGreen: { color: '#e8b634', dashed: true },
+        youGreen: { color: '#58aaff', dashed: true }
+      };
+      Object.entries(lineDefs).forEach(([key, def]) => {
+        if (!gLines[key]) {
+          gLines[key] = new google.maps.Polyline({
+            map: gmap,
+            strokeColor: def.color,
+            strokeOpacity: .95,
+            strokeWeight: 4,
+            icons: def.dashed ? [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 3 }, offset: '0', repeat: '18px' }] : []
+          });
+        }
+      });
+      if (!gpsAccuracyCircle) {
+        gpsAccuracyCircle = new google.maps.Circle({
+          map: gmap,
+          strokeColor: '#268dff',
+          strokeOpacity: .55,
+          strokeWeight: 1,
+          fillColor: '#268dff',
+          fillOpacity: .13
+        });
+      }
+    }
+
+    function setLinePath(key, a, b) {
+      if (!gLines[key]) return;
+      const aa = toLatLng(a), bb = toLatLng(b);
+      if (aa && bb) {
+        gLines[key].setMap(gmap);
+        gLines[key].setPath([aa, bb]);
+      } else {
+        gLines[key].setMap(null);
+      }
+    }
+
+    function renderGoogleMap() {
+      if (!googleReady || !gmap) return;
+      ensureGoogleObjects();
+      $('map').classList.add('google-active');
+      const h = hole();
+      Object.entries({ tee: h.tee, green: h.green, layup: h.layup, you: h.you }).forEach(([key, point]) => {
+        const marker = gMarkers[key];
+        if (!marker) return;
+        const pos = toLatLng(point);
+        marker.setMap(pos ? gmap : null);
+        if (pos) marker.setPosition(pos);
+      });
+      setLinePath('teeGreen', h.tee, h.green);
+      setLinePath('teeLayup', h.tee, h.layup);
+      setLinePath('layupGreen', h.layup, h.green);
+      setLinePath('youGreen', h.you, h.green);
+      const center = toLatLng(h.you) || toLatLng(h.green) || PAARL_CENTER;
+      if (center && !renderGoogleMap.didInitialCenter) {
+        gmap.setCenter(center);
+        renderGoogleMap.didInitialCenter = true;
+      }
+      updateGpsStatus(state.liveGps ? 'Live GPS running · golfer marker updates automatically' : 'Google satellite map ready · tap map to set selected point');
+    }
+
+    function loadGoogleMaps() {
+      const inputKey = ($('mapsApiKey')?.value || '').trim();
+      const urlKey = new URLSearchParams(location.search).get('key') || '';
+      state.googleMapsApiKey = inputKey || state.googleMapsApiKey || urlKey;
+      if (!state.googleMapsApiKey) {
+        toast('Paste a Google Maps browser API key first');
+        updateGpsStatus('Missing Google Maps API key');
+        return;
+      }
+      localStorage.setItem(STORAGE_KEY + ':mapsKey', state.googleMapsApiKey);
+      if (window.google?.maps) { initGoogleMap(); return; }
+      window.__initGolfGoogleMap = initGoogleMap;
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(state.googleMapsApiKey)}&callback=__initGolfGoogleMap&v=weekly`;
+      script.async = true;
+      script.defer = true;
+      script.onerror = () => updateGpsStatus('Google Maps failed to load · check API key/billing/referrer');
+      document.head.appendChild(script);
+      updateGpsStatus('Loading Google Maps…');
+    }
+
+    function initGoogleMap() {
+      googleReady = true;
+      const h = hole();
+      gmap = new google.maps.Map($('googleMap'), {
+        center: toLatLng(h.you) || PAARL_CENTER,
+        zoom: 18,
+        mapTypeId: state.mapType || 'satellite',
+        disableDefaultUI: true,
+        zoomControl: true,
+        mapTypeControl: false,
+        fullscreenControl: false,
+        gestureHandling: 'greedy',
+        tilt: 0
+      });
+      gmap.addListener('click', (e) => {
+        const current = hole()[state.activeMapMode] || {};
+        hole()[state.activeMapMode] = pointFromLatLng(e.latLng, current);
+        render();
+        toast(`${state.activeMapMode[0].toUpperCase() + state.activeMapMode.slice(1)} set from map`);
+      });
+      renderGoogleMap.didInitialCenter = false;
+      render();
+    }
+
+    function startLiveGps() {
+      if (!navigator.geolocation) {
+        updateGpsStatus('This tablet browser does not support GPS geolocation');
+        toast('GPS not supported');
+        return;
+      }
+      if (!window.isSecureContext) {
+        updateGpsStatus('GPS needs HTTPS, localhost, or a trusted secure origin on tablet browsers');
+        toast('GPS needs HTTPS/secure origin');
+      }
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+      state.liveGps = true;
+      watchId = navigator.geolocation.watchPosition((pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        hole().you = { ...(hole().you || {}), lat: latitude, lng: longitude };
+        if (googleReady && gpsAccuracyCircle) {
+          gpsAccuracyCircle.setCenter({ lat: latitude, lng: longitude });
+          gpsAccuracyCircle.setRadius(accuracy || 0);
+          gpsAccuracyCircle.setMap(gmap);
+        }
+        updateGpsStatus(`Live GPS: ${accuracy ? Math.round(accuracy) + ' m accuracy' : 'position locked'}`);
+        render();
+      }, (err) => {
+        state.liveGps = false;
+        updateGpsStatus(`GPS error: ${err.message}`);
+        toast('GPS permission/error');
+        render();
+      }, { enableHighAccuracy: true, maximumAge: 1000, timeout: 12000 });
+      toast('Live GPS started');
+      updateGpsStatus('Waiting for GPS fix…');
+    }
+
+    function stopLiveGps() {
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+      watchId = null;
+      state.liveGps = false;
+      if (gpsAccuracyCircle) gpsAccuracyCircle.setMap(null);
+      updateGpsStatus(googleReady ? 'Google satellite map ready · GPS stopped' : 'GPS stopped');
+      render();
+    }
+
+    function renderScores() {
+      $('scoreRows').innerHTML = state.players.map((p, index) => {
+        const c = calcPlayer(p);
+        return `<div class="score-row" data-id="${p.id}">
+          <button class="mini-btn ${index === 0 ? 'ghost' : 'danger'}" data-action="remove" ${index === 0 ? 'disabled' : ''}>${index === 0 ? '' : '−'}</button>
+          <input class="name-input" data-field="name" value="${escapeHtml(p.name)}" />
+          <input class="number-input" data-field="handicap" type="number" min="0" max="54" value="${p.handicap}" />
+          <input class="score-input" data-field="score" type="number" min="1" max="15" value="${c.holeGross || ''}" />
+          <div class="readonly-cell">${c.holePoints}</div>
+          <div class="readonly-cell">${c.grossTotal}</div>
+          <div class="readonly-cell">${c.netTotal}</div>
+          <div class="readonly-cell">${c.pointsTotal}</div>
+          <div class="readonly-cell">${c.grossTotal ? fmtGame(c.game) : '0'}</div>
+        </div>`;
+      }).join('');
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>'"]/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[ch]));
+    }
+
+    function render() {
+      renderHeader();
+      renderDistances();
+      renderMap();
+      renderScores();
+    }
+
+    function setMapPoint(evt) {
+      if (evt.target.closest('button') || evt.target.closest('#googleMap')) return;
+      if (googleReady) return;
+      const rect = $('map').getBoundingClientRect();
+      const x = clamp(((evt.clientX - rect.left) / rect.width) * 100, 2, 98);
+      const y = clamp(((evt.clientY - rect.top) / rect.height) * 100, 2, 98);
+      const h = hole();
+      h[state.activeMapMode] = { x: Number(x.toFixed(2)), y: Number(y.toFixed(2)) };
+      render();
+      toast(`${state.activeMapMode[0].toUpperCase() + state.activeMapMode.slice(1)} set`);
+    }
+
+    function bindEvents() {
+      $('map').addEventListener('pointerdown', setMapPoint);
+      $('loadGoogleMaps').addEventListener('click', loadGoogleMaps);
+      $('startGps').addEventListener('click', startLiveGps);
+      $('centerOnGps').addEventListener('click', () => {
+        const pos = toLatLng(hole().you);
+        if (gmap && pos) { gmap.panTo(pos); gmap.setZoom(Math.max(gmap.getZoom() || 18, 18)); toast('Centered on golfer'); }
+        else toast('No GPS position yet');
+      });
+      $('stopGps').addEventListener('click', stopLiveGps);
+      $('mapTypeBtn').addEventListener('click', () => {
+        state.mapType = state.mapType === 'satellite' ? 'roadmap' : 'satellite';
+        if (gmap) gmap.setMapTypeId(state.mapType);
+        toast(`Map: ${state.mapType}`);
+      });
+      $('mapsApiKey').addEventListener('input', (e) => { state.googleMapsApiKey = e.target.value.trim(); });
+      $('setTee').addEventListener('click', () => { state.activeMapMode = 'tee'; render(); toast('Tap map to set tee'); });
+      $('setLayup').addEventListener('click', () => { state.activeMapMode = 'layup'; render(); toast('Tap map to set layup'); });
+      $('locateBtn').addEventListener('click', () => { state.activeMapMode = 'you'; render(); toast('Tap map to set your ball'); });
+      $('clearLayup').addEventListener('click', () => { hole().layup = null; render(); toast('Layup cleared'); });
+      $('tapMode').addEventListener('change', (e) => { state.activeMapMode = e.target.value; render(); });
+      $('prevHole').addEventListener('click', () => { state.currentHole = state.currentHole === 1 ? 18 : state.currentHole - 1; render(); });
+      $('nextHole').addEventListener('click', () => { state.currentHole = state.currentHole === 18 ? 1 : state.currentHole + 1; render(); });
+      $('saveGame').addEventListener('click', saveLocal);
+      $('loadGame').addEventListener('click', async () => {
+        try {
+          if (!(await loadCloudLatest())) loadLocal(false);
+        } catch (e) {
+          console.error(e);
+          toast('Cloud load failed · loading local');
+          loadLocal(false);
+        }
+      });
+      $('newGame').addEventListener('click', resetGame);
+      $('addPlayer').addEventListener('click', () => {
+        const n = state.players.length + 1;
+        state.players.push({ id: crypto.randomUUID(), name: `Player ${n}`, handicap: 0, scores: {} });
+        render();
+        toast(`Player ${n} added`);
+      });
+      $('courseName').addEventListener('input', (e) => { state.course = e.target.value || 'Course'; renderHeader(); });
+      $('holePar').addEventListener('input', (e) => { hole().par = clamp(Number(e.target.value) || 4, 3, 6); render(); });
+      $('holeSi').addEventListener('input', (e) => { hole().strokeIndex = clamp(Number(e.target.value) || 1, 1, 18); render(); });
+      $('scoreRows').addEventListener('input', (e) => {
+        const row = e.target.closest('.score-row');
+        if (!row) return;
+        const player = state.players.find(p => p.id === row.dataset.id);
+        if (!player) return;
+        const field = e.target.dataset.field;
+        if (field === 'name') player.name = e.target.value;
+        if (field === 'handicap') player.handicap = clamp(Number(e.target.value) || 0, 0, 54);
+        if (field === 'score') player.scores[state.currentHole] = clamp(Number(e.target.value) || 0, 0, 20);
+        renderScores();
+      });
+      $('scoreRows').addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-action="remove"]');
+        if (!btn || btn.disabled) return;
+        const row = btn.closest('.score-row');
+        state.players = state.players.filter(p => p.id !== row.dataset.id);
+        render();
+        toast('Player removed');
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight') $('nextHole').click();
+        if (e.key === 'ArrowLeft') $('prevHole').click();
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveLocal(); }
+      });
+    }
+
+    function tickClock() {
+      const d = new Date();
+      $('clock').textContent = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    }
+
+    bindEvents();
+    state.googleMapsApiKey = localStorage.getItem(STORAGE_KEY + ':mapsKey') || new URLSearchParams(location.search).get('key') || state.googleMapsApiKey;
+    loadLocal(true);
+    state.googleMapsApiKey = state.googleMapsApiKey || localStorage.getItem(STORAGE_KEY + ':mapsKey') || new URLSearchParams(location.search).get('key') || '';
+    render();
+    if (state.googleMapsApiKey) loadGoogleMaps();
+    tickClock();
+    setInterval(tickClock, 30000);
+  </script>
+</body>
+</html>
