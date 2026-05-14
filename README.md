@@ -1,6 +1,6 @@
 # Golf Scoring Tablet App
 
-Tablet-first golf scoring web app with live Google Maps, GPS golfer marker, handicap-adjusted scoring, Stableford-style points, and Supabase cloud save/load.
+Tablet-first golf scoring web app with live Google Maps, GPS golfer marker, handicap-adjusted scoring, Stableford-style points, email+password auth, and per-user Supabase cloud save/load.
 
 ## Features
 
@@ -10,35 +10,48 @@ Tablet-first golf scoring web app with live Google Maps, GPS golfer marker, hand
 - Live GPS golfer marker using `navigator.geolocation.watchPosition()`
 - Real distance calculations in metres from lat/lng
 - GPS accuracy circle
-- Player add/remove
-- Editable player names, handicaps, and scores
+- Player add/remove with editable names, handicaps, scores
 - Gross, net, points, and game-vs-par calculations
 - Local browser save/load
-- Supabase cloud save/load
+- Email + password auth via Supabase
+- Per-user cloud save with multi-game load picker (list / load / delete)
+
+## Project structure
+
+```
+index.html          markup + styles only
+config.js           Supabase URL / anon key / Google Maps key (overwritten by Netlify build)
+src/
+  app.js            entrypoint + event wiring
+  state.js          state object + local persistence + cloud row mapping
+  scoring.js        handicap, Stableford, Haversine, helpers
+  auth.js           Supabase email+password auth + session refresh
+  cloud.js          per-user CRUD against public.golf_games
+  map.js            Google Maps + fallback SVG map + GPS watch
+  ui.js             render functions + toast + modal helpers
+scripts/write-config.js  builds config.js from env vars at Netlify deploy time
+supabase/migrations/     SQL for the golf_games table + RLS policies
+```
 
 ## Local use
 
-Open `index.html` directly, or run a tiny local server:
+Because the app uses ES modules, open it via a local server (not file://):
 
 ```bash
 python3 -m http.server 5173
 ```
 
-Then open:
+Then open <http://localhost:5173>.
 
-```text
-http://localhost:5173
-```
-
-## Environment config
+## Environment config (Netlify)
 
 Netlify runs `npm run build`, which writes `config.js` from environment variables:
 
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
-- `GOOGLE_MAPS_API_KEY` optional
+- `GOOGLE_MAPS_API_KEY` (optional — also accepts paste in the UI)
 
-Without config, the app still works locally with fallback map/local storage, and the Google Maps key can be pasted in the UI.
+The repo ships with a working `config.js` for the Skins Scorer Supabase project; Netlify overwrites it on build.
 
 ## GPS requirement
 
@@ -52,10 +65,12 @@ Use the Netlify HTTPS URL for field testing.
 
 ## Supabase backend
 
-Uses table:
+Table: `public.golf_games`, scoped to the signed-in user via RLS (`auth.uid() = user_id`).
 
-```text
-public.golf_games
-```
+Schema and policies live in [`supabase/migrations/20260514_golf_games.sql`](supabase/migrations/20260514_golf_games.sql) and have already been applied to the `gdegsibcmjqhxxnlzoed` project.
 
-The current prototype uses public anon RLS for read/insert/update because there is no login layer yet. Add auth before using it as a public production scoring system.
+### Auth notes
+
+- Email + password sign-up / sign-in via Supabase Auth.
+- If you have email confirmation enabled in the Supabase dashboard, users must confirm before they can save.
+- Session is persisted in localStorage and refreshed automatically before expiry.

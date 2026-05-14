@@ -466,6 +466,41 @@
 
     .active-mode { box-shadow: 0 0 0 3px rgba(44,224,106,.35), inset 0 1px 0 rgba(255,255,255,.2); }
 
+    #authBar { display: flex; align-items: center; gap: 8px; }
+    #authBar button { min-height: 22px; padding: 2px 10px; font-size: 12px; border-radius: 6px; }
+    #authBar .auth-email { color: rgba(255,255,255,.92); font-weight: 700; }
+
+    button:disabled { opacity: .45; cursor: not-allowed; }
+
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.55);
+      display: none; align-items: center; justify-content: center; z-index: 200;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: var(--panel-2); border: 1px solid var(--line);
+      border-radius: 14px; min-width: 340px; max-width: 92vw;
+      max-height: 86vh; overflow: auto; box-shadow: var(--shadow);
+      color: var(--ink); padding: 18px;
+    }
+    .modal h2 { margin: 0 0 12px; font-size: 18px; }
+    .modal .modal-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
+    .modal label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; font-weight: 700; }
+    .modal input, .modal select {
+      width: 100%; min-height: 42px; border-radius: 8px;
+      border: 1px solid var(--line-soft); background: #08140d;
+      color: var(--ink); padding: 8px 10px;
+    }
+    .modal .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+    .game-row {
+      display: grid; grid-template-columns: 1fr auto auto;
+      gap: 8px; align-items: center; padding: 8px;
+      border: 1px solid var(--line-soft); border-radius: 8px; margin-bottom: 6px;
+    }
+    .game-title { font-weight: 700; }
+    .game-sub { font-size: 12px; color: var(--muted); }
+    .empty { color: var(--muted); text-align: center; padding: 20px; }
+
     @media (max-width: 1050px) {
       .topbar { grid-template-columns: 155px 1fr auto auto auto 92px 92px 92px 42px 28px; gap: 5px; }
       .topbar button, .pill { padding-inline: 8px; font-size: 12px; }
@@ -480,7 +515,15 @@
   <div class="app">
     <div class="statusbar">
       <div id="clock">4:42</div>
-      <div>GPS · Wi‑Fi · 94%</div>
+      <div id="authBar">
+        <div id="signedOutControls" style="display:flex;gap:8px;align-items:center;">
+          <button id="signInBtn" class="primary">Sign in</button>
+        </div>
+        <div id="signedInControls" style="display:none;gap:8px;align-items:center;">
+          <span class="auth-email" id="authEmail"></span>
+          <button id="signOutBtn" class="ghost">Sign out</button>
+        </div>
+      </div>
     </div>
 
     <header class="topbar">
@@ -589,597 +632,48 @@
 
   <div class="toast" id="toast"></div>
 
+  <div class="modal-backdrop" id="authModal">
+    <div class="modal" role="dialog" aria-labelledby="authTitle">
+      <h2 id="authTitle">Sign in</h2>
+      <div class="modal-row">
+        <div style="flex:1">
+          <label for="authMode">Mode</label>
+          <select id="authMode">
+            <option value="signin">Sign in</option>
+            <option value="signup">Create account</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-row">
+        <div style="flex:1">
+          <label for="authEmailInput">Email</label>
+          <input id="authEmailInput" type="email" autocomplete="email" />
+        </div>
+      </div>
+      <div class="modal-row">
+        <div style="flex:1">
+          <label for="authPassword">Password</label>
+          <input id="authPassword" type="password" autocomplete="current-password" />
+        </div>
+      </div>
+      <div class="actions">
+        <button class="ghost" id="authClose">Cancel</button>
+        <button class="primary" id="authSubmit">Continue</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="loadModal">
+    <div class="modal" role="dialog" aria-labelledby="loadTitle" style="min-width:480px;">
+      <h2 id="loadTitle">Load saved game</h2>
+      <div id="gameList"><div class="empty">Loading…</div></div>
+      <div class="actions">
+        <button class="ghost" id="loadClose">Close</button>
+      </div>
+    </div>
+  </div>
+
   <script src="./config.js"></script>
-  <script>
-    const STORAGE_KEY = 'strategico-golf-tablet-scorecard-v1';
-    const CONFIG = window.GOLF_APP_CONFIG || {};
-    const PAARL_CENTER = { lat: -33.7546, lng: 18.9706 };
-    const defaultHoles = Array.from({ length: 18 }, (_, i) => {
-      const offset = (i % 6) * 0.00028;
-      return {
-        number: i + 1,
-        par: [5,4,3,4,4,5,3,4,4,4,5,3,4,4,5,3,4,4][i],
-        strokeIndex: [8,14,18,2,10,4,16,6,12,7,1,17,5,11,3,15,9,13][i],
-        tee: { x: 50, y: 78, lat: PAARL_CENTER.lat - 0.00105 + offset, lng: PAARL_CENTER.lng - 0.00012 },
-        green: { x: 50, y: 15, lat: PAARL_CENTER.lat + 0.00105 + offset, lng: PAARL_CENTER.lng + 0.00012 },
-        layup: null,
-        you: { x: 56, y: 87, lat: PAARL_CENTER.lat - 0.00132 + offset, lng: PAARL_CENTER.lng + 0.00018 }
-      };
-    });
-
-    let gmap = null;
-    let googleReady = false;
-    let watchId = null;
-    let gMarkers = {};
-    let gLines = {};
-    let gpsAccuracyCircle = null;
-
-    const state = {
-      course: 'Paarl-Winelands',
-      scoringMode: 'Stroke Play',
-      units: 'm',
-      currentHole: 1,
-      holes: defaultHoles,
-      players: [
-        { id: crypto.randomUUID(), name: 'Player 1', handicap: 0, scores: { 1: 6 } },
-        { id: crypto.randomUUID(), name: 'Player 2', handicap: 36, scores: { 1: 9 } }
-      ],
-      activeMapMode: 'green',
-      googleMapsApiKey: CONFIG.googleMapsApiKey || '',
-      supabaseUrl: CONFIG.supabaseUrl || '',
-      supabaseAnonKey: CONFIG.supabaseAnonKey || '',
-      currentCloudGameId: '',
-      liveGps: false,
-      mapType: 'satellite'
-    };
-
-    const $ = (id) => document.getElementById(id);
-    const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
-    const hole = () => state.holes[state.currentHole - 1];
-    const fmtDistance = (d) => Number.isFinite(d) ? `${Math.round(d)} m` : '—';
-    const fmtGame = (n) => n > 0 ? `+${n}` : `${n}`;
-
-    function toast(message) {
-      const el = $('toast');
-      el.textContent = message;
-      el.classList.add('show');
-      clearTimeout(toast.timer);
-      toast.timer = setTimeout(() => el.classList.remove('show'), 1800);
-    }
-
-    function meterDistance(a, b) {
-      if (!a || !b) return NaN;
-      if (Number.isFinite(a.lat) && Number.isFinite(a.lng) && Number.isFinite(b.lat) && Number.isFinite(b.lng)) {
-        const R = 6371000;
-        const toRad = deg => deg * Math.PI / 180;
-        const dLat = toRad(b.lat - a.lat);
-        const dLng = toRad(b.lng - a.lng);
-        const lat1 = toRad(a.lat);
-        const lat2 = toRad(b.lat);
-        const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
-        return 2 * R * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
-      }
-      const dx = a.x - b.x;
-      const dy = a.y - b.y;
-      return Math.sqrt(dx * dx + dy * dy) * 3.43;
-    }
-
-    function toLatLng(point) {
-      if (!point || !Number.isFinite(point.lat) || !Number.isFinite(point.lng)) return null;
-      return { lat: point.lat, lng: point.lng };
-    }
-
-    function pointFromLatLng(latLng, fallback = {}) {
-      const lat = typeof latLng.lat === 'function' ? latLng.lat() : latLng.lat;
-      const lng = typeof latLng.lng === 'function' ? latLng.lng() : latLng.lng;
-      return { ...fallback, lat: Number(lat), lng: Number(lng) };
-    }
-
-    function updateGpsStatus(message) {
-      const el = $('gpsStatus');
-      if (el) el.textContent = message;
-    }
-
-    function strokesForHole(handicap, si) {
-      const h = Math.max(0, Number(handicap) || 0);
-      const base = Math.floor(h / 18);
-      const extra = h % 18;
-      return base + (si <= extra ? 1 : 0);
-    }
-
-    function stableford(net, par) {
-      if (!Number.isFinite(net)) return 0;
-      return Math.max(0, par - net + 2);
-    }
-
-    function calcPlayer(player) {
-      let grossTotal = 0;
-      let netTotal = 0;
-      let pointsTotal = 0;
-      let parTotal = 0;
-      let holeGross = Number(player.scores[state.currentHole]) || 0;
-      let holeStrokes = strokesForHole(player.handicap, hole().strokeIndex);
-      let holeNet = holeGross ? holeGross - holeStrokes : 0;
-      let holePoints = holeGross ? stableford(holeNet, hole().par) : 0;
-
-      for (let i = 1; i <= state.currentHole; i++) {
-        const h = state.holes[i - 1];
-        const gross = Number(player.scores[i]) || 0;
-        if (!gross) continue;
-        const strokes = strokesForHole(player.handicap, h.strokeIndex);
-        const net = gross - strokes;
-        grossTotal += gross;
-        netTotal += net;
-        pointsTotal += stableford(net, h.par);
-        parTotal += h.par;
-      }
-
-      return { holeGross, holeNet, holePoints, grossTotal, netTotal, pointsTotal, game: netTotal - parTotal };
-    }
-
-    function supabaseConfigured() {
-      return Boolean(state.supabaseUrl && state.supabaseAnonKey);
-    }
-
-    function supabaseHeaders(extra = {}) {
-      return {
-        apikey: state.supabaseAnonKey,
-        Authorization: `Bearer ${state.supabaseAnonKey}`,
-        'Content-Type': 'application/json',
-        ...extra
-      };
-    }
-
-    function cloudPayload() {
-      return {
-        name: `${state.course} · ${new Date().toLocaleDateString()}`,
-        course: state.course,
-        current_hole: state.currentHole,
-        scoring_mode: state.scoringMode,
-        players: state.players,
-        holes: state.holes
-      };
-    }
-
-    async function saveCloud() {
-      if (!supabaseConfigured()) return false;
-      const base = state.supabaseUrl.replace(/\/$/, '');
-      const isUpdate = Boolean(state.currentCloudGameId);
-      const url = isUpdate
-        ? `${base}/rest/v1/golf_games?id=eq.${encodeURIComponent(state.currentCloudGameId)}&select=*`
-        : `${base}/rest/v1/golf_games?select=*`;
-      const response = await fetch(url, {
-        method: isUpdate ? 'PATCH' : 'POST',
-        headers: supabaseHeaders({ Prefer: 'return=representation' }),
-        body: JSON.stringify(cloudPayload())
-      });
-      if (!response.ok) throw new Error(await response.text());
-      const rows = await response.json();
-      if (rows?.[0]?.id) state.currentCloudGameId = rows[0].id;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      return true;
-    }
-
-    async function loadCloudLatest() {
-      if (!supabaseConfigured()) { toast('Supabase not configured'); return false; }
-      const base = state.supabaseUrl.replace(/\/$/, '');
-      const response = await fetch(`${base}/rest/v1/golf_games?select=*&order=updated_at.desc&limit=1`, {
-        headers: supabaseHeaders()
-      });
-      if (!response.ok) throw new Error(await response.text());
-      const rows = await response.json();
-      if (!rows.length) { toast('No cloud game found'); return false; }
-      const row = rows[0];
-      state.currentCloudGameId = row.id;
-      state.course = row.course || state.course;
-      state.currentHole = row.current_hole || 1;
-      state.scoringMode = row.scoring_mode || state.scoringMode;
-      state.players = (row.players || []).map((p) => ({ id: p.id || crypto.randomUUID(), ...p }));
-      state.holes = (row.holes?.length ? row.holes : defaultHoles).map((h, i) => ({ ...defaultHoles[i], ...h }));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      render();
-      toast('Loaded latest cloud game');
-      return true;
-    }
-
-    async function saveLocal() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      try {
-        const cloud = await saveCloud();
-        toast(cloud ? 'Game saved locally + Supabase' : 'Game saved locally');
-      } catch (e) {
-        console.error(e);
-        toast('Saved locally · Supabase failed');
-      }
-    }
-
-    function loadLocal(silent = false) {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) { if (!silent) toast('No saved game found'); return; }
-      try {
-        const saved = JSON.parse(raw);
-        Object.assign(state, saved);
-        state.supabaseUrl = CONFIG.supabaseUrl || state.supabaseUrl || '';
-        state.supabaseAnonKey = CONFIG.supabaseAnonKey || state.supabaseAnonKey || '';
-        state.googleMapsApiKey = CONFIG.googleMapsApiKey || state.googleMapsApiKey || '';
-        state.holes = state.holes.map((h, i) => ({ ...defaultHoles[i], ...h }));
-        render();
-        if (!silent) toast('Game loaded locally');
-      } catch (e) {
-        console.error(e);
-        toast('Could not load saved game');
-      }
-    }
-
-    function resetGame() {
-      if (!confirm('Start a new blank game? Current local changes will stay only if saved.')) return;
-      state.currentHole = 1;
-      state.holes = JSON.parse(JSON.stringify(defaultHoles));
-      state.players = [
-        { id: crypto.randomUUID(), name: 'Player 1', handicap: 0, scores: {} },
-        { id: crypto.randomUUID(), name: 'Player 2', handicap: 0, scores: {} }
-      ];
-      render();
-      toast('New game ready');
-    }
-
-    function renderHeader() {
-      const h = hole();
-      $('title').textContent = `${state.course} · Hole ${state.currentHole}`;
-      $('courseBtn').textContent = `Course: ${state.course}`;
-      $('parPill').textContent = `Par ${h.par}`;
-      $('siPill').textContent = `SI ${h.strokeIndex}`;
-      $('modePill').textContent = state.scoringMode;
-      $('courseName').value = state.course;
-      $('holePar').value = h.par;
-      $('holeSi').value = h.strokeIndex;
-      $('tapMode').value = state.activeMapMode;
-      if ($('mapsApiKey')) $('mapsApiKey').value = state.googleMapsApiKey || '';
-      $('setTee').classList.toggle('active-mode', state.activeMapMode === 'tee');
-      $('setLayup').classList.toggle('active-mode', state.activeMapMode === 'layup');
-      $('locateBtn').classList.toggle('active-mode', state.activeMapMode === 'you');
-    }
-
-    function renderDistances() {
-      const h = hole();
-      $('teeGreen').textContent = fmtDistance(meterDistance(h.tee, h.green));
-      $('teeLayup').textContent = fmtDistance(meterDistance(h.tee, h.layup));
-      $('layupGreen').textContent = fmtDistance(meterDistance(h.layup, h.green));
-      $('youGreen').textContent = fmtDistance(meterDistance(h.you, h.green));
-      $('youLayup').textContent = fmtDistance(meterDistance(h.you, h.layup));
-    }
-
-    function markerHTML(point, cls) {
-      if (!point) return '';
-      return `<div class="marker ${cls}" style="left:${point.x}%;top:${point.y}%"></div>`;
-    }
-
-    function lineSvg(a, b, color = '#1377ff', dashed = false) {
-      if (!a || !b) return '';
-      return `<line x1="${a.x * 10}" y1="${a.y * 10}" x2="${b.x * 10}" y2="${b.y * 10}" stroke="${color}" stroke-width="8" stroke-linecap="round" ${dashed ? 'stroke-dasharray="18 14"' : ''} />`;
-    }
-
-    function labelHTML(a, b, text) {
-      if (!a || !b || text === '—') return '';
-      return `<div class="dist-label" style="left:${(a.x + b.x) / 2}%;top:${(a.y + b.y) / 2}%">${text}</div>`;
-    }
-
-    function renderMap() {
-      const h = hole();
-      $('overlay').innerHTML = `
-        ${lineSvg(h.tee, h.green)}
-        ${lineSvg(h.tee, h.layup, '#e8b634', true)}
-        ${lineSvg(h.layup, h.green, '#e8b634', true)}
-        ${lineSvg(h.you, h.green, '#58aaff', true)}
-      `;
-      $('markerLayer').innerHTML = [
-        markerHTML(h.green, 'green'), markerHTML(h.tee, 'tee'), markerHTML(h.layup, 'layup'), markerHTML(h.you, 'you')
-      ].join('');
-      $('distLabels').innerHTML = [
-        labelHTML(h.tee, h.green, fmtDistance(meterDistance(h.tee, h.green))),
-        labelHTML(h.tee, h.layup, fmtDistance(meterDistance(h.tee, h.layup))),
-        labelHTML(h.layup, h.green, fmtDistance(meterDistance(h.layup, h.green)))
-      ].join('');
-      renderGoogleMap();
-    }
-
-    function markerIcon(color, scale = 1) {
-      if (!window.google) return null;
-      return {
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: 9 * scale,
-        fillColor: color,
-        fillOpacity: 1,
-        strokeColor: '#ffffff',
-        strokeWeight: 2
-      };
-    }
-
-    function ensureGoogleObjects() {
-      if (!googleReady || !gmap) return;
-      const markerDefs = {
-        tee: '#e3422c',
-        green: '#22c55e',
-        layup: '#e8b634',
-        you: '#268dff'
-      };
-      Object.entries(markerDefs).forEach(([key, color]) => {
-        if (!gMarkers[key]) {
-          gMarkers[key] = new google.maps.Marker({ map: gmap, title: key, icon: markerIcon(color, key === 'you' ? 1.25 : 1) });
-        }
-      });
-      const lineDefs = {
-        teeGreen: { color: '#1377ff', dashed: false },
-        teeLayup: { color: '#e8b634', dashed: true },
-        layupGreen: { color: '#e8b634', dashed: true },
-        youGreen: { color: '#58aaff', dashed: true }
-      };
-      Object.entries(lineDefs).forEach(([key, def]) => {
-        if (!gLines[key]) {
-          gLines[key] = new google.maps.Polyline({
-            map: gmap,
-            strokeColor: def.color,
-            strokeOpacity: .95,
-            strokeWeight: 4,
-            icons: def.dashed ? [{ icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 3 }, offset: '0', repeat: '18px' }] : []
-          });
-        }
-      });
-      if (!gpsAccuracyCircle) {
-        gpsAccuracyCircle = new google.maps.Circle({
-          map: gmap,
-          strokeColor: '#268dff',
-          strokeOpacity: .55,
-          strokeWeight: 1,
-          fillColor: '#268dff',
-          fillOpacity: .13
-        });
-      }
-    }
-
-    function setLinePath(key, a, b) {
-      if (!gLines[key]) return;
-      const aa = toLatLng(a), bb = toLatLng(b);
-      if (aa && bb) {
-        gLines[key].setMap(gmap);
-        gLines[key].setPath([aa, bb]);
-      } else {
-        gLines[key].setMap(null);
-      }
-    }
-
-    function renderGoogleMap() {
-      if (!googleReady || !gmap) return;
-      ensureGoogleObjects();
-      $('map').classList.add('google-active');
-      const h = hole();
-      Object.entries({ tee: h.tee, green: h.green, layup: h.layup, you: h.you }).forEach(([key, point]) => {
-        const marker = gMarkers[key];
-        if (!marker) return;
-        const pos = toLatLng(point);
-        marker.setMap(pos ? gmap : null);
-        if (pos) marker.setPosition(pos);
-      });
-      setLinePath('teeGreen', h.tee, h.green);
-      setLinePath('teeLayup', h.tee, h.layup);
-      setLinePath('layupGreen', h.layup, h.green);
-      setLinePath('youGreen', h.you, h.green);
-      const center = toLatLng(h.you) || toLatLng(h.green) || PAARL_CENTER;
-      if (center && !renderGoogleMap.didInitialCenter) {
-        gmap.setCenter(center);
-        renderGoogleMap.didInitialCenter = true;
-      }
-      updateGpsStatus(state.liveGps ? 'Live GPS running · golfer marker updates automatically' : 'Google satellite map ready · tap map to set selected point');
-    }
-
-    function loadGoogleMaps() {
-      const inputKey = ($('mapsApiKey')?.value || '').trim();
-      const urlKey = new URLSearchParams(location.search).get('key') || '';
-      state.googleMapsApiKey = inputKey || state.googleMapsApiKey || urlKey;
-      if (!state.googleMapsApiKey) {
-        toast('Paste a Google Maps browser API key first');
-        updateGpsStatus('Missing Google Maps API key');
-        return;
-      }
-      localStorage.setItem(STORAGE_KEY + ':mapsKey', state.googleMapsApiKey);
-      if (window.google?.maps) { initGoogleMap(); return; }
-      window.__initGolfGoogleMap = initGoogleMap;
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(state.googleMapsApiKey)}&callback=__initGolfGoogleMap&v=weekly`;
-      script.async = true;
-      script.defer = true;
-      script.onerror = () => updateGpsStatus('Google Maps failed to load · check API key/billing/referrer');
-      document.head.appendChild(script);
-      updateGpsStatus('Loading Google Maps…');
-    }
-
-    function initGoogleMap() {
-      googleReady = true;
-      const h = hole();
-      gmap = new google.maps.Map($('googleMap'), {
-        center: toLatLng(h.you) || PAARL_CENTER,
-        zoom: 18,
-        mapTypeId: state.mapType || 'satellite',
-        disableDefaultUI: true,
-        zoomControl: true,
-        mapTypeControl: false,
-        fullscreenControl: false,
-        gestureHandling: 'greedy',
-        tilt: 0
-      });
-      gmap.addListener('click', (e) => {
-        const current = hole()[state.activeMapMode] || {};
-        hole()[state.activeMapMode] = pointFromLatLng(e.latLng, current);
-        render();
-        toast(`${state.activeMapMode[0].toUpperCase() + state.activeMapMode.slice(1)} set from map`);
-      });
-      renderGoogleMap.didInitialCenter = false;
-      render();
-    }
-
-    function startLiveGps() {
-      if (!navigator.geolocation) {
-        updateGpsStatus('This tablet browser does not support GPS geolocation');
-        toast('GPS not supported');
-        return;
-      }
-      if (!window.isSecureContext) {
-        updateGpsStatus('GPS needs HTTPS, localhost, or a trusted secure origin on tablet browsers');
-        toast('GPS needs HTTPS/secure origin');
-      }
-      if (watchId) navigator.geolocation.clearWatch(watchId);
-      state.liveGps = true;
-      watchId = navigator.geolocation.watchPosition((pos) => {
-        const { latitude, longitude, accuracy } = pos.coords;
-        hole().you = { ...(hole().you || {}), lat: latitude, lng: longitude };
-        if (googleReady && gpsAccuracyCircle) {
-          gpsAccuracyCircle.setCenter({ lat: latitude, lng: longitude });
-          gpsAccuracyCircle.setRadius(accuracy || 0);
-          gpsAccuracyCircle.setMap(gmap);
-        }
-        updateGpsStatus(`Live GPS: ${accuracy ? Math.round(accuracy) + ' m accuracy' : 'position locked'}`);
-        render();
-      }, (err) => {
-        state.liveGps = false;
-        updateGpsStatus(`GPS error: ${err.message}`);
-        toast('GPS permission/error');
-        render();
-      }, { enableHighAccuracy: true, maximumAge: 1000, timeout: 12000 });
-      toast('Live GPS started');
-      updateGpsStatus('Waiting for GPS fix…');
-    }
-
-    function stopLiveGps() {
-      if (watchId) navigator.geolocation.clearWatch(watchId);
-      watchId = null;
-      state.liveGps = false;
-      if (gpsAccuracyCircle) gpsAccuracyCircle.setMap(null);
-      updateGpsStatus(googleReady ? 'Google satellite map ready · GPS stopped' : 'GPS stopped');
-      render();
-    }
-
-    function renderScores() {
-      $('scoreRows').innerHTML = state.players.map((p, index) => {
-        const c = calcPlayer(p);
-        return `<div class="score-row" data-id="${p.id}">
-          <button class="mini-btn ${index === 0 ? 'ghost' : 'danger'}" data-action="remove" ${index === 0 ? 'disabled' : ''}>${index === 0 ? '' : '−'}</button>
-          <input class="name-input" data-field="name" value="${escapeHtml(p.name)}" />
-          <input class="number-input" data-field="handicap" type="number" min="0" max="54" value="${p.handicap}" />
-          <input class="score-input" data-field="score" type="number" min="1" max="15" value="${c.holeGross || ''}" />
-          <div class="readonly-cell">${c.holePoints}</div>
-          <div class="readonly-cell">${c.grossTotal}</div>
-          <div class="readonly-cell">${c.netTotal}</div>
-          <div class="readonly-cell">${c.pointsTotal}</div>
-          <div class="readonly-cell">${c.grossTotal ? fmtGame(c.game) : '0'}</div>
-        </div>`;
-      }).join('');
-    }
-
-    function escapeHtml(str) {
-      return String(str).replace(/[&<>'"]/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[ch]));
-    }
-
-    function render() {
-      renderHeader();
-      renderDistances();
-      renderMap();
-      renderScores();
-    }
-
-    function setMapPoint(evt) {
-      if (evt.target.closest('button') || evt.target.closest('#googleMap')) return;
-      if (googleReady) return;
-      const rect = $('map').getBoundingClientRect();
-      const x = clamp(((evt.clientX - rect.left) / rect.width) * 100, 2, 98);
-      const y = clamp(((evt.clientY - rect.top) / rect.height) * 100, 2, 98);
-      const h = hole();
-      h[state.activeMapMode] = { x: Number(x.toFixed(2)), y: Number(y.toFixed(2)) };
-      render();
-      toast(`${state.activeMapMode[0].toUpperCase() + state.activeMapMode.slice(1)} set`);
-    }
-
-    function bindEvents() {
-      $('map').addEventListener('pointerdown', setMapPoint);
-      $('loadGoogleMaps').addEventListener('click', loadGoogleMaps);
-      $('startGps').addEventListener('click', startLiveGps);
-      $('centerOnGps').addEventListener('click', () => {
-        const pos = toLatLng(hole().you);
-        if (gmap && pos) { gmap.panTo(pos); gmap.setZoom(Math.max(gmap.getZoom() || 18, 18)); toast('Centered on golfer'); }
-        else toast('No GPS position yet');
-      });
-      $('stopGps').addEventListener('click', stopLiveGps);
-      $('mapTypeBtn').addEventListener('click', () => {
-        state.mapType = state.mapType === 'satellite' ? 'roadmap' : 'satellite';
-        if (gmap) gmap.setMapTypeId(state.mapType);
-        toast(`Map: ${state.mapType}`);
-      });
-      $('mapsApiKey').addEventListener('input', (e) => { state.googleMapsApiKey = e.target.value.trim(); });
-      $('setTee').addEventListener('click', () => { state.activeMapMode = 'tee'; render(); toast('Tap map to set tee'); });
-      $('setLayup').addEventListener('click', () => { state.activeMapMode = 'layup'; render(); toast('Tap map to set layup'); });
-      $('locateBtn').addEventListener('click', () => { state.activeMapMode = 'you'; render(); toast('Tap map to set your ball'); });
-      $('clearLayup').addEventListener('click', () => { hole().layup = null; render(); toast('Layup cleared'); });
-      $('tapMode').addEventListener('change', (e) => { state.activeMapMode = e.target.value; render(); });
-      $('prevHole').addEventListener('click', () => { state.currentHole = state.currentHole === 1 ? 18 : state.currentHole - 1; render(); });
-      $('nextHole').addEventListener('click', () => { state.currentHole = state.currentHole === 18 ? 1 : state.currentHole + 1; render(); });
-      $('saveGame').addEventListener('click', saveLocal);
-      $('loadGame').addEventListener('click', async () => {
-        try {
-          if (!(await loadCloudLatest())) loadLocal(false);
-        } catch (e) {
-          console.error(e);
-          toast('Cloud load failed · loading local');
-          loadLocal(false);
-        }
-      });
-      $('newGame').addEventListener('click', resetGame);
-      $('addPlayer').addEventListener('click', () => {
-        const n = state.players.length + 1;
-        state.players.push({ id: crypto.randomUUID(), name: `Player ${n}`, handicap: 0, scores: {} });
-        render();
-        toast(`Player ${n} added`);
-      });
-      $('courseName').addEventListener('input', (e) => { state.course = e.target.value || 'Course'; renderHeader(); });
-      $('holePar').addEventListener('input', (e) => { hole().par = clamp(Number(e.target.value) || 4, 3, 6); render(); });
-      $('holeSi').addEventListener('input', (e) => { hole().strokeIndex = clamp(Number(e.target.value) || 1, 1, 18); render(); });
-      $('scoreRows').addEventListener('input', (e) => {
-        const row = e.target.closest('.score-row');
-        if (!row) return;
-        const player = state.players.find(p => p.id === row.dataset.id);
-        if (!player) return;
-        const field = e.target.dataset.field;
-        if (field === 'name') player.name = e.target.value;
-        if (field === 'handicap') player.handicap = clamp(Number(e.target.value) || 0, 0, 54);
-        if (field === 'score') player.scores[state.currentHole] = clamp(Number(e.target.value) || 0, 0, 20);
-        renderScores();
-      });
-      $('scoreRows').addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-action="remove"]');
-        if (!btn || btn.disabled) return;
-        const row = btn.closest('.score-row');
-        state.players = state.players.filter(p => p.id !== row.dataset.id);
-        render();
-        toast('Player removed');
-      });
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'ArrowRight') $('nextHole').click();
-        if (e.key === 'ArrowLeft') $('prevHole').click();
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveLocal(); }
-      });
-    }
-
-    function tickClock() {
-      const d = new Date();
-      $('clock').textContent = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    }
-
-    bindEvents();
-    state.googleMapsApiKey = localStorage.getItem(STORAGE_KEY + ':mapsKey') || new URLSearchParams(location.search).get('key') || state.googleMapsApiKey;
-    loadLocal(true);
-    state.googleMapsApiKey = state.googleMapsApiKey || localStorage.getItem(STORAGE_KEY + ':mapsKey') || new URLSearchParams(location.search).get('key') || '';
-    render();
-    if (state.googleMapsApiKey) loadGoogleMaps();
-    tickClock();
-    setInterval(tickClock, 30000);
-  </script>
+  <script type="module" src="./src/app.js"></script>
 </body>
 </html>
