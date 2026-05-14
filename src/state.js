@@ -1,7 +1,8 @@
-import { DEFAULT_HOLES, STORAGE_KEY } from './config.js';
+import { STORAGE_KEY } from './config.js';
+import { holesForCourse, DEFAULT_COURSE } from './courses.js';
 
-function freshHoles() {
-  return JSON.parse(JSON.stringify(DEFAULT_HOLES));
+function freshHoles(courseName = DEFAULT_COURSE) {
+  return holesForCourse(courseName);
 }
 
 function freshPlayers() {
@@ -12,7 +13,7 @@ function freshPlayers() {
 }
 
 export const state = {
-  course: 'Paarl-Winelands',
+  course: DEFAULT_COURSE,
   scoringMode: 'Stroke Play',
   units: 'm',
   currentHole: 1,
@@ -29,9 +30,11 @@ export const state = {
 
 export const hole = () => state.holes[state.currentHole - 1];
 
-export function resetGameState() {
+export function resetGameState({ course = DEFAULT_COURSE, scoringMode = 'Stroke Play' } = {}) {
+  state.course = course;
+  state.scoringMode = scoringMode;
   state.currentHole = 1;
-  state.holes = freshHoles();
+  state.holes = freshHoles(course);
   state.players = freshPlayers();
   state.currentCloudGameId = '';
 }
@@ -51,7 +54,8 @@ export function hydrateLocal() {
   try {
     const saved = JSON.parse(raw);
     for (const k of SAVE_KEYS) if (k in saved) state[k] = saved[k];
-    state.holes = state.holes.map((h, i) => ({ ...DEFAULT_HOLES[i], ...h }));
+    const template = holesForCourse(state.course);
+    state.holes = state.holes.map((h, i) => ({ ...template[i], ...h }));
     return true;
   } catch {
     return false;
@@ -64,6 +68,7 @@ export function applyCloudRow(row) {
   state.currentHole = row.current_hole || 1;
   state.scoringMode = row.scoring_mode || state.scoringMode;
   state.players = (row.players || []).map((p) => ({ id: p.id || crypto.randomUUID(), ...p }));
-  state.holes = (row.holes?.length ? row.holes : DEFAULT_HOLES)
-    .map((h, i) => ({ ...DEFAULT_HOLES[i], ...h }));
+  const template = holesForCourse(state.course);
+  state.holes = (row.holes?.length ? row.holes : template)
+    .map((h, i) => ({ ...template[i], ...h }));
 }

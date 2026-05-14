@@ -433,7 +433,7 @@
 
     .hole-editor {
       display: grid;
-      grid-template-columns: 1fr 110px 110px 145px minmax(210px, .8fr) 112px 112px;
+      grid-template-columns: 1fr 110px 110px 145px 112px;
       gap: 8px;
       align-items: end;
       padding: 10px;
@@ -619,11 +619,8 @@
               <option value="you">Set You</option>
             </select>
           </div>
-          <div class="field">
-            <label>Google Maps API key</label>
-            <input id="mapsApiKey" placeholder="Paste browser key once" autocomplete="off" />
-          </div>
-          <button class="primary" id="loadGoogleMaps">Load Maps</button>
+          <input id="mapsApiKey" type="hidden" />
+          <button class="primary" id="loadGoogleMaps" style="display:none">Load Maps</button>
           <button class="primary" id="startGps">Start GPS</button>
         </div>
       </section>
@@ -659,6 +656,28 @@
       <div class="actions">
         <button class="ghost" id="authClose">Cancel</button>
         <button class="primary" id="authSubmit">Continue</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="newGameModal">
+    <div class="modal" role="dialog" aria-labelledby="newGameTitle">
+      <h2 id="newGameTitle">Start new game</h2>
+      <div class="modal-row">
+        <div style="flex:1">
+          <label for="newGameMode">Game type</label>
+          <select id="newGameMode"></select>
+        </div>
+      </div>
+      <div class="modal-row">
+        <div style="flex:1">
+          <label for="newGameCourse">Course</label>
+          <select id="newGameCourse"></select>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="ghost" id="newGameClose">Cancel</button>
+        <button class="primary" id="newGameStart">Start</button>
       </div>
     </div>
   </div>

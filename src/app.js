@@ -1,4 +1,5 @@
-import { supabaseConfigured, MAPS_KEY_STORAGE } from './config.js';
+import { supabaseConfigured, MAPS_KEY_STORAGE, GOOGLE_MAPS_API_KEY } from './config.js';
+import { COURSE_NAMES, SCORING_MODES, DEFAULT_COURSE } from './courses.js';
 import { state, hole, hydrateLocal, persistLocal, resetGameState } from './state.js';
 import { clamp } from './scoring.js';
 import {
@@ -41,12 +42,30 @@ async function openLoadModal() {
   }
 }
 
-function newGame() {
-  if (!confirm('Start a new blank game? Unsaved changes will be lost.')) return;
-  resetGameState();
+function populateNewGameModal() {
+  const courseSel = $('newGameCourse');
+  courseSel.innerHTML = COURSE_NAMES.map(n =>
+    `<option value="${n}" ${n === state.course ? 'selected' : ''}>${n}</option>`
+  ).join('');
+  const modeSel = $('newGameMode');
+  modeSel.innerHTML = SCORING_MODES.map(m =>
+    `<option value="${m}" ${m === state.scoringMode ? 'selected' : ''}>${m}</option>`
+  ).join('');
+}
+
+function openNewGameModal() {
+  populateNewGameModal();
+  openModal('newGameModal');
+}
+
+function startNewGame() {
+  const course = $('newGameCourse').value || DEFAULT_COURSE;
+  const scoringMode = $('newGameMode').value || 'Stroke Play';
+  resetGameState({ course, scoringMode });
   persistLocal();
   render();
-  toast('New game ready');
+  closeModal('newGameModal');
+  toast(`New ${scoringMode} game · ${course}`);
 }
 
 function bindEvents() {
@@ -73,7 +92,9 @@ function bindEvents() {
   $('nextHole').addEventListener('click', () => { state.currentHole = state.currentHole === 18 ? 1 : state.currentHole + 1; render(); });
   $('saveGame').addEventListener('click', handleSave);
   $('loadGame').addEventListener('click', openLoadModal);
-  $('newGame').addEventListener('click', newGame);
+  $('newGame').addEventListener('click', openNewGameModal);
+  $('newGameClose').addEventListener('click', () => closeModal('newGameModal'));
+  $('newGameStart').addEventListener('click', startNewGame);
   $('addPlayer').addEventListener('click', () => {
     const n = state.players.length + 1;
     state.players.push({ id: crypto.randomUUID(), name: `Player ${n}`, handicap: 0, scores: {} });
@@ -161,6 +182,7 @@ function bindEvents() {
     if (e.key === 'Escape') {
       closeModal('authModal');
       closeModal('loadModal');
+      closeModal('newGameModal');
     }
   });
 }
@@ -179,9 +201,10 @@ function scheduleClock() {
 bindEvents();
 loadSession();
 hydrateLocal();
-state.googleMapsApiKey = state.googleMapsApiKey
-  || localStorage.getItem(MAPS_KEY_STORAGE)
+state.googleMapsApiKey = GOOGLE_MAPS_API_KEY
   || new URLSearchParams(location.search).get('key')
+  || localStorage.getItem(MAPS_KEY_STORAGE)
+  || state.googleMapsApiKey
   || '';
 render();
 if (!supabaseConfigured()) {
