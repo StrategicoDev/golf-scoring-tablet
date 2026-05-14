@@ -5,10 +5,11 @@ function freshHoles(courseName = DEFAULT_COURSE) {
   return holesForCourse(courseName);
 }
 
+export const MAX_PLAYERS = 4;
+
 function freshPlayers() {
   return [
-    { id: crypto.randomUUID(), name: 'Player 1', handicap: 0, scores: {} },
-    { id: crypto.randomUUID(), name: 'Player 2', handicap: 0, scores: {} }
+    { id: crypto.randomUUID(), name: 'Player 1', handicap: 0, scores: {} }
   ];
 }
 

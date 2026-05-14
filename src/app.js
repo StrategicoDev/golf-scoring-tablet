@@ -1,10 +1,10 @@
-import { supabaseConfigured, MAPS_KEY_STORAGE, GOOGLE_MAPS_API_KEY } from './config.js';
+import { supabaseConfigured, GOOGLE_MAPS_API_KEY } from './config.js';
 import { COURSE_NAMES, SCORING_MODES, DEFAULT_COURSE } from './courses.js';
-import { state, hole, hydrateLocal, persistLocal, resetGameState } from './state.js';
+import { state, hole, hydrateLocal, persistLocal, resetGameState, MAX_PLAYERS } from './state.js';
 import { clamp } from './scoring.js';
 import {
   initMap, renderMap, renderDistances, loadGoogleMaps,
-  setMapType, centerOnGps, startLiveGps, stopLiveGps, setMapPoint
+  setMapType, centerOnGps, startLiveGps, stopLiveGps, setMapPoint, isGpsLive
 } from './map.js';
 import {
   render, renderScores, renderHeader, renderAuth, toast, updateGpsStatus,
@@ -70,11 +70,8 @@ function startNewGame() {
 
 function bindEvents() {
   $('map').addEventListener('pointerdown', setMapPoint);
-  $('loadGoogleMaps').addEventListener('click', loadGoogleMaps);
-  $('startGps').addEventListener('click', startLiveGps);
-  $('stopGps').addEventListener('click', stopLiveGps);
-  $('centerOnGps').addEventListener('click', () => {
-    if (centerOnGps()) toast('Centered on golfer');
+  $('locateBtn').addEventListener('click', () => {
+    if (centerOnGps()) toast('Centered on GPS');
     else toast('No GPS position yet');
   });
   $('mapTypeBtn').addEventListener('click', () => {
@@ -82,12 +79,11 @@ function bindEvents() {
     setMapType(next);
     toast(`Map: ${next}`);
   });
-  $('mapsApiKey').addEventListener('input', (e) => { state.googleMapsApiKey = e.target.value.trim(); });
-  $('setTee').addEventListener('click', () => { state.activeMapMode = 'tee'; render(); toast('Tap map to set tee'); });
-  $('setLayup').addEventListener('click', () => { state.activeMapMode = 'layup'; render(); toast('Tap map to set layup'); });
-  $('locateBtn').addEventListener('click', () => { state.activeMapMode = 'you'; render(); toast('Tap map to set your ball'); });
+  $('gpsToggle').addEventListener('click', () => {
+    if (isGpsLive()) { stopLiveGps(); updateGpsBtn(); }
+    else { startLiveGps(); updateGpsBtn(); }
+  });
   $('clearLayup').addEventListener('click', () => { hole().layup = null; render(); toast('Layup cleared'); });
-  $('tapMode').addEventListener('change', (e) => { state.activeMapMode = e.target.value; render(); });
   $('prevHole').addEventListener('click', () => { state.currentHole = state.currentHole === 1 ? 18 : state.currentHole - 1; render(); });
   $('nextHole').addEventListener('click', () => { state.currentHole = state.currentHole === 18 ? 1 : state.currentHole + 1; render(); });
   $('saveGame').addEventListener('click', handleSave);
@@ -96,14 +92,12 @@ function bindEvents() {
   $('newGameClose').addEventListener('click', () => closeModal('newGameModal'));
   $('newGameStart').addEventListener('click', startNewGame);
   $('addPlayer').addEventListener('click', () => {
+    if (state.players.length >= MAX_PLAYERS) { toast(`Max ${MAX_PLAYERS} players`); return; }
     const n = state.players.length + 1;
     state.players.push({ id: crypto.randomUUID(), name: `Player ${n}`, handicap: 0, scores: {} });
     render();
     toast(`Player ${n} added`);
   });
-  $('courseName').addEventListener('input', (e) => { state.course = e.target.value || 'Course'; renderHeader(); });
-  $('holePar').addEventListener('input', (e) => { hole().par = clamp(Number(e.target.value) || 4, 3, 6); render(); });
-  $('holeSi').addEventListener('input', (e) => { hole().strokeIndex = clamp(Number(e.target.value) || 1, 1, 18); render(); });
 
   $('scoreRows').addEventListener('input', (e) => {
     const row = e.target.closest('.score-row'); if (!row) return;
@@ -118,10 +112,19 @@ function bindEvents() {
     const btn = e.target.closest('[data-action="remove"]');
     if (!btn || btn.disabled) return;
     const row = btn.closest('.score-row');
+    if (state.players.length <= 1) { toast('Need at least 1 player'); return; }
     state.players = state.players.filter(p => p.id !== row.dataset.id);
     render();
     toast('Player removed');
   });
+
+  function updateGpsBtn() {
+    const btn = $('gpsToggle');
+    btn.textContent = isGpsLive() ? 'Stop GPS' : 'Start GPS';
+    btn.classList.toggle('primary', !isGpsLive());
+    btn.classList.toggle('danger', isGpsLive());
+  }
+  updateGpsBtn();
 
   // Auth
   $('signInBtn').addEventListener('click', () => openModal('authModal'));
@@ -203,7 +206,6 @@ loadSession();
 hydrateLocal();
 state.googleMapsApiKey = GOOGLE_MAPS_API_KEY
   || new URLSearchParams(location.search).get('key')
-  || localStorage.getItem(MAPS_KEY_STORAGE)
   || state.googleMapsApiKey
   || '';
 render();

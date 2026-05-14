@@ -21,18 +21,10 @@ export function updateGpsStatus(message) {
 export function renderHeader() {
   const h = hole();
   $('title').textContent = `${state.course} · Hole ${state.currentHole}`;
-  $('courseBtn').textContent = `Course: ${state.course}`;
+  $('courseBtn').textContent = `${state.course}`;
   $('parPill').textContent = `Par ${h.par}`;
   $('siPill').textContent = `SI ${h.strokeIndex}`;
   $('modePill').textContent = state.scoringMode;
-  $('courseName').value = state.course;
-  $('holePar').value = h.par;
-  $('holeSi').value = h.strokeIndex;
-  $('tapMode').value = state.activeMapMode;
-  if ($('mapsApiKey')) $('mapsApiKey').value = state.googleMapsApiKey || '';
-  $('setTee').classList.toggle('active-mode', state.activeMapMode === 'tee');
-  $('setLayup').classList.toggle('active-mode', state.activeMapMode === 'layup');
-  $('locateBtn').classList.toggle('active-mode', state.activeMapMode === 'you');
 }
 
 export function renderAuth() {

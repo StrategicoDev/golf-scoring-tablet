@@ -54,6 +54,18 @@ export function calcPlayer(player) {
   return { holeGross, holeNet, holePoints, grossTotal, netTotal, pointsTotal, game: netTotal - parTotal };
 }
 
+export function bearing(from, to) {
+  if (!from || !to) return 0;
+  if (!Number.isFinite(from.lat) || !Number.isFinite(to.lat)) return 0;
+  const toRad = d => d * Math.PI / 180;
+  const toDeg = r => r * 180 / Math.PI;
+  const f1 = toRad(from.lat), f2 = toRad(to.lat);
+  const dLng = toRad(to.lng - from.lng);
+  const y = Math.sin(dLng) * Math.cos(f2);
+  const x = Math.cos(f1) * Math.sin(f2) - Math.sin(f1) * Math.cos(f2) * Math.cos(dLng);
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}
+
 export function toLatLng(point) {
   if (!point || !Number.isFinite(point.lat) || !Number.isFinite(point.lng)) return null;
   return { lat: point.lat, lng: point.lng };
