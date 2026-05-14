@@ -1,5 +1,5 @@
 import { state, hole, persistLocal, resetGameState } from './state.js';
-import { calcPlayer, clamp, fmtGame, escapeHtml } from './scoring.js';
+import { calcPlayer, clamp, fmtGame, escapeHtml, strokesForHole, stableford } from './scoring.js';
 import { renderMap, renderDistances } from './map.js';
 import { isSignedIn } from './auth.js';
 
@@ -21,10 +21,11 @@ export function updateGpsStatus(message) {
 export function renderHeader() {
   const h = hole();
   $('title').textContent = `${state.course} · Hole ${state.currentHole}`;
-  $('courseBtn').textContent = `${state.course}`;
   $('parPill').textContent = `Par ${h.par}`;
   $('siPill').textContent = `SI ${h.strokeIndex}`;
   $('modePill').textContent = state.scoringMode;
+  const unitsBtn = $('unitsBtn');
+  if (unitsBtn) unitsBtn.textContent = state.units === 'yards' ? 'yd' : 'm';
 }
 
 export function renderAuth() {
@@ -86,6 +87,81 @@ export function renderGameList(games) {
       <button class="danger" data-action="delete">Delete</button>
     </div>`;
   }).join('');
+}
+
+export function renderScorecard() {
+  const holes = state.holes;
+  const front = holes.slice(0, 9);
+  const back = holes.slice(9, 18);
+  const sum = (arr, fn) => arr.reduce((a, b) => a + (fn(b) || 0), 0);
+
+  function holeHeaderCells(arr, kind) {
+    return arr.map(h => `<th class="${kind || ''}">${h.number}</th>`).join('');
+  }
+  function parCells(arr) { return arr.map(h => `<td>${h.par}</td>`).join(''); }
+  function siCells(arr) { return arr.map(h => `<td>${h.strokeIndex}</td>`).join(''); }
+
+  const frontPar = sum(front, h => h.par);
+  const backPar = sum(back, h => h.par);
+  const totalPar = frontPar + backPar;
+
+  function playerCells(player, arr) {
+    return arr.map(h => {
+      const gross = Number(player.scores[h.number]) || 0;
+      return `<td>${gross || ''}</td>`;
+    }).join('');
+  }
+  function playerTotals(player) {
+    let gross = 0, net = 0, points = 0, par = 0;
+    for (const h of holes) {
+      const g = Number(player.scores[h.number]) || 0;
+      if (!g) continue;
+      const s = strokesForHole(player.handicap, h.strokeIndex);
+      const n = g - s;
+      gross += g; net += n; points += stableford(n, h.par); par += h.par;
+    }
+    return { gross, net, points, game: net - par };
+  }
+  function playerSum(player, arr) {
+    return arr.reduce((a, h) => a + (Number(player.scores[h.number]) || 0), 0);
+  }
+
+  const playerRows = state.players.map(p => {
+    const t = playerTotals(p);
+    const out = playerSum(p, front);
+    const inn = playerSum(p, back);
+    return `<tr>
+      <td class="row-label">${escapeHtml(p.name)} <span style="color:#9cb5a8;font-weight:600">(${p.handicap})</span></td>
+      ${playerCells(p, front)}
+      <td class="out">${out || ''}</td>
+      ${playerCells(p, back)}
+      <td class="in">${inn || ''}</td>
+      <td class="tot">${t.gross || ''}</td>
+      <td class="tot">${t.gross ? t.net : ''}</td>
+      <td class="tot">${t.points}</td>
+      <td class="tot">${t.gross ? fmtGame(t.game) : ''}</td>
+    </tr>`;
+  }).join('');
+
+  $('cardBody').innerHTML = `
+    <table class="scorecard">
+      <thead>
+        <tr>
+          <th class="row-label">Hole</th>
+          ${holeHeaderCells(front)}
+          <th class="out">Out</th>
+          ${holeHeaderCells(back)}
+          <th class="in">In</th>
+          <th class="tot">Gross</th><th class="tot">Net</th><th class="tot">Pts</th><th class="tot">Game</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="par-row"><td class="row-label">Par</td>${parCells(front)}<td class="out">${frontPar}</td>${parCells(back)}<td class="in">${backPar}</td><td class="tot" colspan="4">${totalPar}</td></tr>
+        <tr class="si-row"><td class="row-label">SI</td>${siCells(front)}<td class="out"></td>${siCells(back)}<td class="in"></td><td class="tot" colspan="4"></td></tr>
+        ${playerRows}
+      </tbody>
+    </table>
+  `;
 }
 
 export { resetGameState, persistLocal, clamp };

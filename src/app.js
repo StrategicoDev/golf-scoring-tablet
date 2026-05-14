@@ -4,11 +4,11 @@ import { state, hole, hydrateLocal, persistLocal, resetGameState, MAX_PLAYERS } 
 import { clamp } from './scoring.js';
 import {
   initMap, renderMap, renderDistances, loadGoogleMaps,
-  setMapType, centerOnGps, startLiveGps, stopLiveGps, setMapPoint, isGpsLive
+  setMapType, centerOnGps, startLiveGps, stopLiveGps, setMapPoint, isGpsLive, reCenterOnHole
 } from './map.js';
 import {
   render, renderScores, renderHeader, renderAuth, toast, updateGpsStatus,
-  openModal, closeModal, renderGameList
+  openModal, closeModal, renderGameList, renderScorecard
 } from './ui.js';
 import { loadSession, signIn, signUp, signOut, isSignedIn } from './auth.js';
 import { saveCloud, listCloudGames, loadCloudGame, deleteCloudGame } from './cloud.js';
@@ -64,6 +64,7 @@ function startNewGame() {
   resetGameState({ course, scoringMode });
   persistLocal();
   render();
+  reCenterOnHole();
   closeModal('newGameModal');
   toast(`New ${scoringMode} game · ${course}`);
 }
@@ -84,10 +85,24 @@ function bindEvents() {
     else { startLiveGps(); updateGpsBtn(); }
   });
   $('clearLayup').addEventListener('click', () => { hole().layup = null; render(); toast('Layup cleared'); });
-  $('prevHole').addEventListener('click', () => { state.currentHole = state.currentHole === 1 ? 18 : state.currentHole - 1; render(); });
-  $('nextHole').addEventListener('click', () => { state.currentHole = state.currentHole === 18 ? 1 : state.currentHole + 1; render(); });
+  $('prevHole').addEventListener('click', () => {
+    state.currentHole = state.currentHole === 1 ? 18 : state.currentHole - 1;
+    render();
+  });
+  $('nextHole').addEventListener('click', () => {
+    state.currentHole = state.currentHole === 18 ? 1 : state.currentHole + 1;
+    render();
+  });
   $('saveGame').addEventListener('click', handleSave);
   $('loadGame').addEventListener('click', openLoadModal);
+  $('cardBtn').addEventListener('click', () => { renderScorecard(); openModal('cardModal'); });
+  $('cardClose').addEventListener('click', () => closeModal('cardModal'));
+  $('unitsBtn').addEventListener('click', () => {
+    state.units = state.units === 'yards' ? 'm' : 'yards';
+    persistLocal();
+    render();
+    toast(`Units: ${state.units === 'yards' ? 'yards' : 'metres'}`);
+  });
   $('newGame').addEventListener('click', openNewGameModal);
   $('newGameClose').addEventListener('click', () => closeModal('newGameModal'));
   $('newGameStart').addEventListener('click', startNewGame);
@@ -165,7 +180,7 @@ function bindEvents() {
     const id = row.dataset.id;
     const action = e.target.dataset.action;
     if (action === 'load') {
-      try { await loadCloudGame(id); render(); toast('Game loaded'); closeModal('loadModal'); }
+      try { await loadCloudGame(id); render(); reCenterOnHole(); toast('Game loaded'); closeModal('loadModal'); }
       catch (err) { console.error(err); toast('Load failed'); }
     } else if (action === 'delete') {
       if (!confirm('Delete this saved game?')) return;
@@ -186,6 +201,7 @@ function bindEvents() {
       closeModal('authModal');
       closeModal('loadModal');
       closeModal('newGameModal');
+      closeModal('cardModal');
     }
   });
 }

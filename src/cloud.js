@@ -16,9 +16,15 @@ async function authHeaders(extra = {}) {
   };
 }
 
+function autoName() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${state.course}-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+}
+
 function payload() {
   return {
-    name: `${state.course} · ${new Date().toLocaleDateString()}`,
+    name: autoName(),
     course: state.course,
     current_hole: state.currentHole,
     scoring_mode: state.scoringMode,
@@ -30,12 +36,9 @@ function payload() {
 
 export async function saveCloud() {
   if (!supabaseConfigured() || !isSignedIn()) return false;
-  const isUpdate = Boolean(state.currentCloudGameId);
-  const url = isUpdate
-    ? `${restBase()}/golf_games?id=eq.${encodeURIComponent(state.currentCloudGameId)}&select=*`
-    : `${restBase()}/golf_games?select=*`;
-  const resp = await fetch(url, {
-    method: isUpdate ? 'PATCH' : 'POST',
+  // Each Save Game writes a new snapshot row with an auto-generated timestamped name.
+  const resp = await fetch(`${restBase()}/golf_games?select=*`, {
+    method: 'POST',
     headers: await authHeaders({ Prefer: 'return=representation' }),
     body: JSON.stringify(payload())
   });

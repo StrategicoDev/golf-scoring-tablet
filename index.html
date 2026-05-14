@@ -102,20 +102,19 @@
 
     .topbar {
       display: grid;
-      grid-template-columns: 180px minmax(230px, 1fr) auto auto auto auto auto auto 54px 36px;
+      grid-template-columns: minmax(220px, 1fr) auto auto auto auto auto auto auto 64px;
       align-items: center;
       gap: 8px;
-      padding: 9px 12px;
+      padding: 10px 12px;
       background: rgba(1, 6, 4, .9);
       border-bottom: 1px solid rgba(42, 158, 76, .7);
       box-shadow: var(--shadow);
     }
 
-    .course-btn { text-align: left; color: #b8d3c3; }
     .title {
       color: var(--green-3);
-      font-size: clamp(17px, 2vw, 22px);
-      font-weight: 750;
+      font-size: clamp(20px, 2.2vw, 26px);
+      font-weight: 800;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -123,21 +122,21 @@
     }
 
     .pill {
-      min-height: 42px;
+      min-height: 50px;
       display: inline-grid;
       place-items: center;
       border: 1px solid var(--line-soft);
-      border-radius: 9px;
+      border-radius: 10px;
       background: #08130d;
       color: #cde2d7;
-      padding: 0 12px;
+      padding: 0 14px;
       white-space: nowrap;
-      font-weight: 650;
+      font-weight: 800;
+      font-size: 18px;
     }
 
-    .topbar button { white-space: nowrap; min-height: 42px; }
-    .tab-label { color: #9fb9ac; text-align: center; font-weight: 700; }
-    .unit { color: #9fb9ac; text-align: center; }
+    .topbar button { white-space: nowrap; min-height: 50px; font-size: 17px; font-weight: 800; padding: 8px 14px; }
+    #unitsBtn { font-size: 19px; font-weight: 800; }
 
     .main {
       display: grid;
@@ -299,12 +298,12 @@
 
     .distance-grid {
       display: grid;
-      gap: 4px;
-      font-size: clamp(18px, 2vw, 24px);
-      line-height: 1.1;
+      gap: 6px;
+      font-size: clamp(22px, 2.4vw, 30px);
+      line-height: 1.15;
       color: #d9e6df;
       letter-spacing: .01em;
-      font-weight: 700;
+      font-weight: 750;
     }
     .distance-grid .divider { height: 1px; background: rgba(159,185,172,.25); margin: 5px 0; }
     .muted { color: #a5b6ad; }
@@ -472,17 +471,29 @@
     .game-sub { font-size: 12px; color: var(--muted); }
     .empty { color: var(--muted); text-align: center; padding: 20px; }
 
+    .scorecard { border-collapse: collapse; width: 100%; color: var(--ink); font-size: 14px; }
+    .scorecard th, .scorecard td {
+      border: 1px solid rgba(46, 150, 78, .35);
+      padding: 6px 8px; text-align: center; min-width: 36px;
+    }
+    .scorecard th { background: #08130d; color: #b8d3c3; font-weight: 800; }
+    .scorecard .row-label { text-align: left; font-weight: 800; background: rgba(8,30,16,.7); }
+    .scorecard tr.par-row td, .scorecard tr.si-row td { color: #9cb5a8; font-weight: 700; }
+    .scorecard tr.totals td { background: rgba(8,30,16,.55); font-weight: 800; color: #e6f6ec; }
+    .scorecard .out, .scorecard .in, .scorecard .tot { background: rgba(15,46,25,.7); font-weight: 800; }
+
     @media (max-width: 1200px) {
-      .topbar { grid-template-columns: 140px 1fr auto auto auto auto auto auto 42px 22px; gap: 5px; padding: 6px 8px; }
-      .topbar button, .pill { padding-inline: 8px; font-size: 13px; min-height: 42px; }
+      .topbar { grid-template-columns: minmax(180px, 1fr) auto auto auto auto auto auto auto 56px; gap: 6px; padding: 8px 10px; }
+      .topbar button, .pill { padding-inline: 10px; font-size: 15px; min-height: 46px; }
+      .pill { font-size: 16px; }
       .main { grid-template-columns: 44% 56%; gap: 8px; padding: 8px; }
-      .distance-grid { font-size: 19px; }
+      .distance-grid { font-size: clamp(20px, 2.4vw, 26px); }
       .score-head, .score-row, .label-row {
         grid-template-columns: 28px minmax(90px, 1.2fr) 50px 52px 50px 52px 52px 56px 52px;
         gap: 4px; min-width: 0;
       }
       .score-input, .readonly-cell, .number-input { min-height: 44px; font-size: 17px; }
-      .controls button { font-size: 16px; min-height: 50px; }
+      .controls button { font-size: 17px; min-height: 52px; }
     }
   </style>
 </head>
@@ -502,7 +513,6 @@
     </div>
 
     <header class="topbar">
-      <button class="course-btn" id="courseBtn">Course: Paarl-Winelands</button>
       <div class="title" id="title">Paarl-Winelands · Hole 1</div>
       <div class="pill" id="parPill">Par 5</div>
       <div class="pill" id="siPill">SI 8</div>
@@ -510,8 +520,8 @@
       <button id="newGame">New Game</button>
       <button id="saveGame">Save Game</button>
       <button id="loadGame">Load Game</button>
-      <div class="tab-label">Card</div>
-      <div class="unit">m</div>
+      <button class="primary" id="cardBtn">Card</button>
+      <button id="unitsBtn" class="ghost">m</button>
     </header>
 
     <main class="main">
@@ -601,6 +611,16 @@
       <div class="actions">
         <button class="ghost" id="authClose">Cancel</button>
         <button class="primary" id="authSubmit">Continue</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="cardModal">
+    <div class="modal" role="dialog" aria-labelledby="cardTitle" style="min-width:min(96vw, 1100px); max-width: 96vw;">
+      <h2 id="cardTitle">Scorecard</h2>
+      <div id="cardBody" style="overflow:auto;"></div>
+      <div class="actions">
+        <button class="ghost" id="cardClose">Close</button>
       </div>
     </div>
   </div>

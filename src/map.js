@@ -1,6 +1,12 @@
 import { state, hole } from './state.js';
-import { PAARL_CENTER } from './config.js';
-import { meterDistance, fmtDistance, toLatLng, pointFromLatLng, clamp, bearing } from './scoring.js';
+import { PAARL_CENTER, GOOGLE_MAPS_ID } from './config.js';
+import { meterDistance, toLatLng, pointFromLatLng, clamp, bearing } from './scoring.js';
+
+function fmtDist(d) {
+  if (!Number.isFinite(d)) return '—';
+  if (state.units === 'yards') return Math.round(d * 1.09361) + ' yd';
+  return Math.round(d) + ' m';
+}
 
 let gmap = null;
 let googleReady = false;
@@ -39,13 +45,13 @@ function labelHTML(a, b, text) {
 
 export function renderDistances() {
   const h = hole();
-  $('teeGreen').textContent = fmtDistance(meterDistance(h.tee, h.green));
-  $('teeLayup').textContent = fmtDistance(meterDistance(h.tee, h.layup));
-  $('layupGreen').textContent = fmtDistance(meterDistance(h.layup, h.green));
-  $('youGreen').textContent = fmtDistance(meterDistance(h.you, h.green));
-  $('youTee').textContent = fmtDistance(meterDistance(h.you, h.tee));
+  $('teeGreen').textContent = fmtDist(meterDistance(h.tee, h.green));
+  $('teeLayup').textContent = fmtDist(meterDistance(h.tee, h.layup));
+  $('layupGreen').textContent = fmtDist(meterDistance(h.layup, h.green));
+  $('youGreen').textContent = fmtDist(meterDistance(h.you, h.green));
+  $('youTee').textContent = fmtDist(meterDistance(h.you, h.tee));
   const yLayupEl = $('youLayup');
-  if (yLayupEl) yLayupEl.textContent = fmtDistance(meterDistance(h.you, h.layup));
+  if (yLayupEl) yLayupEl.textContent = fmtDist(meterDistance(h.you, h.layup));
 }
 
 export function renderMap() {
@@ -65,9 +71,9 @@ export function renderMap() {
     markerHTML(h.you, 'you')
   ].join('');
   $('distLabels').innerHTML = [
-    hasLayup ? '' : labelHTML(h.tee, h.green, fmtDistance(meterDistance(h.tee, h.green))),
-    labelHTML(h.tee, h.layup, fmtDistance(meterDistance(h.tee, h.layup))),
-    labelHTML(h.layup, h.green, fmtDistance(meterDistance(h.layup, h.green)))
+    hasLayup ? '' : labelHTML(h.tee, h.green, fmtDist(meterDistance(h.tee, h.green))),
+    labelHTML(h.tee, h.layup, fmtDist(meterDistance(h.tee, h.layup))),
+    labelHTML(h.layup, h.green, fmtDist(meterDistance(h.layup, h.green)))
   ].join('');
   renderGoogleMap();
 }
@@ -132,15 +138,12 @@ function centerAndOrientHole() {
   const tee = toLatLng(h.tee);
   const green = toLatLng(h.green);
   if (!tee || !green) return;
-  const midLat = (tee.lat + green.lat) / 2;
-  const midLng = (tee.lng + green.lng) / 2;
-  gmap.setCenter({ lat: midLat, lng: midLng });
-  const teeToGreen = bearing(h.tee, h.green);
-  gmap.setHeading(teeToGreen);
   const bounds = new google.maps.LatLngBounds();
   bounds.extend(tee);
   bounds.extend(green);
-  gmap.fitBounds(bounds, { top: 60, bottom: 60, left: 60, right: 60 });
+  gmap.fitBounds(bounds, { top: 90, bottom: 90, left: 60, right: 60 });
+  const teeToGreen = bearing(h.tee, h.green);
+  try { gmap.setHeading(teeToGreen); } catch { /* raster maps reject heading */ }
 }
 
 function renderGoogleMap() {
@@ -162,8 +165,8 @@ function renderGoogleMap() {
   setLinePath('youGreen', h.you, h.green);
   setLinePath('youTee', h.you, h.tee);
   if (lastCenteredHole !== state.currentHole) {
-    centerAndOrientHole();
     lastCenteredHole = state.currentHole;
+    setTimeout(() => centerAndOrientHole(), 60);
   }
   onGpsStatus(state.liveGps ? 'GPS live' : '');
 }
@@ -186,7 +189,7 @@ export function loadGoogleMaps() {
 function initGoogleMap() {
   googleReady = true;
   const h = hole();
-  gmap = new google.maps.Map($('googleMap'), {
+  const mapOptions = {
     center: toLatLng(h.you) || toLatLng(h.green) || PAARL_CENTER,
     zoom: 18,
     mapTypeId: state.mapType || 'satellite',
@@ -198,7 +201,9 @@ function initGoogleMap() {
     gestureHandling: 'greedy',
     tilt: 0,
     heading: 0
-  });
+  };
+  if (GOOGLE_MAPS_ID) mapOptions.mapId = GOOGLE_MAPS_ID;
+  gmap = new google.maps.Map($('googleMap'), mapOptions);
   gmap.addListener('click', (e) => {
     const current = hole().layup || {};
     hole().layup = pointFromLatLng(e.latLng, current);
@@ -226,6 +231,7 @@ export function centerOnGps() {
 
 export function reCenterOnHole() {
   lastCenteredHole = -1;
+  if (gmap && window.google) google.maps.event.trigger(gmap, 'resize');
   renderGoogleMap();
 }
 
