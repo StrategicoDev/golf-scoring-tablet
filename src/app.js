@@ -1,14 +1,15 @@
 import { supabaseConfigured, GOOGLE_MAPS_API_KEY } from './config.js';
 import { COURSE_NAMES, SCORING_MODES, SCORING_TYPES, DEFAULT_COURSE } from './courses.js';
 import { state, hole, hydrateLocal, persistLocal, resetGameState, MAX_PLAYERS } from './state.js';
-import { clamp } from './scoring.js';
+import { clamp, meterDistance, escapeHtml } from './scoring.js';
 import {
   initMap, renderMap, renderDistances, loadGoogleMaps,
   setMapType, centerOnGps, startLiveGps, stopLiveGps, setMapPoint, isGpsLive, reCenterOnHole
 } from './map.js';
 import {
   render, renderScores, renderHeader, renderAuth, toast, updateGpsStatus,
-  openModal, closeModal, renderGameList, renderScorecard
+  openModal, closeModal, renderGameList, renderScorecard, renderGameStatus,
+  updatePlayerRowCells
 } from './ui.js';
 import { loadSession, signIn, signUp, signOut, isSignedIn } from './auth.js';
 import { saveCloud, listCloudGames, loadCloudGame, deleteCloudGame } from './cloud.js';
@@ -60,6 +61,66 @@ function openNewGameModal() {
   openModal('newGameModal');
 }
 
+function openDriveModal() {
+  const dist = meterDistance(hole().you, hole().tee);
+  if (!Number.isFinite(dist)) { toast('Need GPS + tee to record a drive'); return; }
+  $('driveHole').textContent = state.currentHole;
+  const yards = state.units === 'yards';
+  $('driveDist').textContent = yards ? `${Math.round(dist * 1.09361)} yd` : `${Math.round(dist)} m`;
+  $('driveList').innerHTML = state.players.map(p => {
+    const prior = p.drives?.[state.currentHole];
+    const priorTxt = Number.isFinite(prior)
+      ? ` (prev ${yards ? Math.round(prior * 1.09361) + ' yd' : Math.round(prior) + ' m'})`
+      : '';
+    return `<button class="primary" data-id="${p.id}" style="display:block;width:100%;text-align:left;font-size:17px;padding:12px;">
+      ${escapeHtml(p.name)}${priorTxt}
+    </button>`;
+  }).join('');
+  openModal('driveModal');
+}
+
+function recordDrive(playerId) {
+  const player = state.players.find(p => p.id === playerId);
+  if (!player) return;
+  const dist = meterDistance(hole().you, hole().tee);
+  if (!Number.isFinite(dist)) { toast('No distance to record'); return; }
+  player.drives = player.drives || {};
+  player.drives[state.currentHole] = dist;
+  persistLocal();
+  closeModal('driveModal');
+  const yards = state.units === 'yards';
+  toast(`${player.name}: ${yards ? Math.round(dist * 1.09361) + ' yd' : Math.round(dist) + ' m'} drive`);
+}
+
+function announceMatchTransitions() {
+  const m = state.matchStatusCache;
+  if (state.scoringMode !== 'Match Play' || !m) return;
+  state.matchAnnounced = state.matchAnnounced || { dormie: false, done: false };
+
+  if (m.done && !state.matchAnnounced.done) {
+    state.matchAnnounced.done = true;
+    const winnerName = m.lead === 'a' ? m.a : (m.lead === 'b' ? m.b : null);
+    state.matchWinner = winnerName ? { name: winnerName, label: m.label } : null;
+    persistLocal();
+    if (winnerName) {
+      const keepGoing = confirm(
+        `${winnerName} wins ${m.label}!\n\nContinue scoring for stats? (OK = keep playing · Cancel = end game)`
+      );
+      state.matchContinue = keepGoing;
+      persistLocal();
+      if (!keepGoing) toast(`Game over · ${winnerName} ${m.label}`);
+    }
+    return;
+  }
+
+  if (!m.done && m.up > 0 && m.up === m.holesLeft && !state.matchAnnounced.dormie) {
+    state.matchAnnounced.dormie = true;
+    persistLocal();
+    const leader = m.lead === 'a' ? m.a : m.b;
+    alert(`Dormie! ${leader} is ${m.up} Up with ${m.holesLeft} to play.`);
+  }
+}
+
 function startNewGame() {
   const course = $('newGameCourse').value || DEFAULT_COURSE;
   const scoringMode = $('newGameMode').value || 'Stroke Play';
@@ -109,6 +170,12 @@ function bindEvents() {
   $('loadGame').addEventListener('click', openLoadModal);
   $('cardBtn').addEventListener('click', () => { renderScorecard(); openModal('cardModal'); });
   $('cardClose').addEventListener('click', () => closeModal('cardModal'));
+  $('youTeeRow').addEventListener('click', openDriveModal);
+  $('driveClose').addEventListener('click', () => closeModal('driveModal'));
+  $('driveList').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-id]');
+    if (btn) recordDrive(btn.dataset.id);
+  });
   $('unitsBtn').addEventListener('click', () => {
     state.units = state.units === 'yards' ? 'm' : 'yards';
     persistLocal();
@@ -130,10 +197,19 @@ function bindEvents() {
     const row = e.target.closest('.score-row'); if (!row) return;
     const player = state.players.find(p => p.id === row.dataset.id); if (!player) return;
     const field = e.target.dataset.field;
-    if (field === 'name') player.name = e.target.value;
-    if (field === 'handicap') player.handicap = clamp(Number(e.target.value) || 0, 0, 54);
-    if (field === 'score') player.scores[state.currentHole] = clamp(Number(e.target.value) || 0, 0, 20);
-    renderScores();
+    if (field === 'name') {
+      player.name = e.target.value;
+    } else if (field === 'handicap') {
+      player.handicap = clamp(Number(e.target.value) || 0, 0, 54);
+      // handicap changes net for every other player's calc too (it doesn't, but game status does)
+      for (const p of state.players) updatePlayerRowCells(p);
+    } else if (field === 'score') {
+      player.scores[state.currentHole] = clamp(Number(e.target.value) || 0, 0, 20);
+      updatePlayerRowCells(player);
+    }
+    renderGameStatus();
+    announceMatchTransitions();
+    persistLocal();
   });
   $('scoreRows').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-action="remove"]');
@@ -214,6 +290,7 @@ function bindEvents() {
       closeModal('loadModal');
       closeModal('newGameModal');
       closeModal('cardModal');
+      closeModal('driveModal');
     }
   });
 }

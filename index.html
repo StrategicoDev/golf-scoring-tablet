@@ -307,6 +307,9 @@
       font-weight: 750;
     }
     .distance-grid .divider { height: 1px; background: rgba(159,185,172,.25); margin: 5px 0; }
+    .clickable-distance { cursor: pointer; padding: 4px 6px; border-radius: 6px; transition: background .12s; }
+    .clickable-distance:hover, .clickable-distance:active { background: rgba(46,150,78,.18); }
+    .clickable-distance::after { content: " ▸"; color: #9cb5a8; font-size: .8em; }
     .muted { color: #a5b6ad; }
 
     .controls {
@@ -569,13 +572,13 @@
           <div class="distance-card">
             <div class="section-title">Distances</div>
             <div class="distance-grid">
-              <div>Tee → Green: <span id="teeGreen">—</span></div>
-              <div>Tee → Layup: <span id="teeLayup">—</span></div>
+              <div>Green: <span id="youGreen">—</span></div>
+              <div>Layup: <span id="youLayup">—</span></div>
               <div>Layup → Green: <span id="layupGreen">—</span></div>
               <div class="divider"></div>
-              <div>You → Tee: <span id="youTee">—</span></div>
-              <div>You → Green: <span id="youGreen">—</span></div>
-              <div>You → Layup: <span id="youLayup">—</span></div>
+              <div id="youTeeRow" class="clickable-distance">Tee: <span id="youTee">—</span></div>
+              <span id="teeGreen" hidden></span>
+              <span id="teeLayup" hidden></span>
             </div>
           </div>
 
@@ -640,6 +643,18 @@
         <button class="ghost" id="authClose">Cancel</button>
         <button class="primary" id="authSubmit">Continue</button>
       </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="driveModal">
+    <div class="modal" role="dialog" aria-labelledby="driveTitle">
+      <h2 id="driveTitle">Record drive</h2>
+      <p style="margin: 0 0 12px; font-size: 18px;">
+        Hole <span id="driveHole">—</span> ·
+        Distance <strong id="driveDist">— m</strong>
+      </p>
+      <div id="driveList" style="display: grid; gap: 8px;"></div>
+      <div class="actions"><button class="ghost" id="driveClose">Close</button></div>
     </div>
   </div>
 

@@ -36,6 +36,18 @@ export function renderAuth() {
   $('signedInControls').style.display = signed ? 'flex' : 'none';
 }
 
+export function updatePlayerRowCells(player) {
+  const row = document.querySelector(`.score-row[data-id="${player.id}"]`);
+  if (!row) return;
+  const c = calcPlayer(player);
+  const cells = row.querySelectorAll('.readonly-cell');
+  if (cells[0]) cells[0].textContent = c.holePoints;
+  if (cells[1]) cells[1].textContent = c.grossTotal;
+  if (cells[2]) cells[2].textContent = c.netTotal;
+  if (cells[3]) cells[3].textContent = c.pointsTotal;
+  if (cells[4]) cells[4].textContent = c.grossTotal ? fmtGame(c.game) : '0';
+}
+
 export function renderScores() {
   $('scoreRows').innerHTML = state.players.map((p, index) => {
     const c = calcPlayer(p);
@@ -175,6 +187,7 @@ export function renderGameStatus() {
   if (isMatch && entities.length === 2) {
     const [a, b] = entities;
     const m = matchPlayStatus(a, b);
+    state.matchStatusCache = { a: a.name, b: b.name, ...m };
     const leftCls = m.lead === 'a' ? 'lead' : (m.lead === 'b' ? 'trail' : 'even');
     const rightCls = m.lead === 'b' ? 'lead' : (m.lead === 'a' ? 'trail' : 'even');
     const leftTag = m.lead === 'a' ? `${m.up}Up` : (m.lead === 'b' ? `${m.up}Dn` : 'AS');

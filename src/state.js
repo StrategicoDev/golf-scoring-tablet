@@ -18,6 +18,9 @@ export const state = {
   scoringMode: 'Stroke Play',
   scoringType: 'Points',
   teams: false,
+  matchAnnounced: { dormie: false, done: false },
+  matchWinner: null,
+  matchContinue: true,
   units: 'm',
   currentHole: 1,
   holes: freshHoles(),
@@ -47,17 +50,21 @@ export function resetGameState({
   state.holes = freshHoles(course);
   // Teams need at least 2 players to be useful; spin up 4 so both teams have two.
   state.players = teams ? [
-    { id: crypto.randomUUID(), name: 'Player 1', handicap: 0, scores: {} },
-    { id: crypto.randomUUID(), name: 'Player 2', handicap: 0, scores: {} },
-    { id: crypto.randomUUID(), name: 'Player 3', handicap: 0, scores: {} },
-    { id: crypto.randomUUID(), name: 'Player 4', handicap: 0, scores: {} }
+    { id: crypto.randomUUID(), name: 'Player 1', handicap: 0, scores: {}, drives: {} },
+    { id: crypto.randomUUID(), name: 'Player 2', handicap: 0, scores: {}, drives: {} },
+    { id: crypto.randomUUID(), name: 'Player 3', handicap: 0, scores: {}, drives: {} },
+    { id: crypto.randomUUID(), name: 'Player 4', handicap: 0, scores: {}, drives: {} }
   ] : freshPlayers();
   state.currentCloudGameId = '';
+  state.matchAnnounced = { dormie: false, done: false };
+  state.matchWinner = null;
+  state.matchContinue = true;
 }
 
 const SAVE_KEYS = ['course', 'scoringMode', 'scoringType', 'teams', 'units',
                    'currentHole', 'holes', 'players',
-                   'activeMapMode', 'googleMapsApiKey', 'currentCloudGameId', 'mapType'];
+                   'activeMapMode', 'googleMapsApiKey', 'currentCloudGameId', 'mapType',
+                   'matchAnnounced', 'matchWinner', 'matchContinue'];
 
 export function persistLocal() {
   const slice = {};
