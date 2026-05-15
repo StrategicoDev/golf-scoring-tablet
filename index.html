@@ -466,6 +466,63 @@
       color: var(--ink); padding: 8px 10px;
     }
     .modal .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+
+    /* Glare-friendly variant: high-contrast light theme for outdoor visibility. */
+    .modal.glare {
+      background: #f6f9f5;
+      color: #0c1a12;
+      border: 2px solid #176d33;
+      min-width: min(640px, 96vw);
+      max-width: 760px;
+      padding: 26px 28px;
+      box-shadow: 0 18px 50px rgba(0,0,0,.55);
+    }
+    .modal.glare h2 {
+      color: #0c4a22;
+      font-size: 28px;
+      font-weight: 900;
+      margin: 0 0 18px;
+      letter-spacing: .01em;
+    }
+    .modal.glare .modal-row { gap: 14px; margin-bottom: 16px; }
+    .modal.glare label {
+      color: #1c4a2c;
+      font-size: 16px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .modal.glare input, .modal.glare select {
+      background: #ffffff;
+      color: #0c1a12;
+      border: 2px solid #1f7d43;
+      min-height: 60px;
+      padding: 10px 14px;
+      font-size: 22px;
+      font-weight: 700;
+      border-radius: 10px;
+    }
+    .modal.glare select { appearance: none; -webkit-appearance: none; background-image: linear-gradient(45deg, transparent 50%, #1f7d43 50%), linear-gradient(135deg, #1f7d43 50%, transparent 50%); background-position: calc(100% - 22px) 50%, calc(100% - 14px) 50%; background-size: 8px 8px, 8px 8px; background-repeat: no-repeat; padding-right: 36px; }
+    .modal.glare .actions { gap: 12px; margin-top: 18px; }
+    .modal.glare .actions button {
+      min-height: 64px;
+      font-size: 22px;
+      font-weight: 900;
+      padding: 10px 26px;
+      border-radius: 12px;
+      min-width: 140px;
+    }
+    .modal.glare .actions .primary {
+      background: linear-gradient(180deg, #1ca84d, #0e6b30);
+      border-color: #0a4f23;
+      color: #ffffff;
+    }
+    .modal.glare .actions .ghost {
+      background: #ffffff;
+      color: #0c4a22;
+      border: 2px solid #1f7d43;
+    }
     .game-row {
       display: grid; grid-template-columns: 1fr auto auto;
       gap: 8px; align-items: center; padding: 8px;
@@ -669,7 +726,7 @@
   </div>
 
   <div class="modal-backdrop" id="newGameModal">
-    <div class="modal" role="dialog" aria-labelledby="newGameTitle">
+    <div class="modal glare" role="dialog" aria-labelledby="newGameTitle">
       <h2 id="newGameTitle">Start new game</h2>
       <div class="modal-row">
         <div style="flex:1">
