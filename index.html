@@ -102,7 +102,7 @@
 
     .topbar {
       display: grid;
-      grid-template-columns: minmax(220px, 1fr) auto auto auto auto auto auto auto 64px;
+      grid-template-columns: minmax(220px, 1fr) auto auto auto auto auto auto auto 56px 56px;
       align-items: center;
       gap: 8px;
       padding: 10px 12px;
@@ -113,7 +113,7 @@
 
     .title {
       color: var(--green-3);
-      font-size: clamp(20px, 2.2vw, 26px);
+      font-size: clamp(22px, 2.4vw, 28px);
       font-weight: 800;
       white-space: nowrap;
       overflow: hidden;
@@ -132,11 +132,12 @@
       padding: 0 14px;
       white-space: nowrap;
       font-weight: 800;
-      font-size: 18px;
+      font-size: 22px;
     }
 
     .topbar button { white-space: nowrap; min-height: 50px; font-size: 17px; font-weight: 800; padding: 8px 14px; }
-    #unitsBtn { font-size: 19px; font-weight: 800; }
+    #unitsBtn, #gpsToggle { font-size: 19px; font-weight: 800; padding: 6px; }
+    #gpsToggle.active { background: linear-gradient(180deg, #25bf5c, #148840); color: #ecfff3; border-color: #35df70; }
 
     .main {
       display: grid;
@@ -482,10 +483,35 @@
     .scorecard tr.totals td { background: rgba(8,30,16,.55); font-weight: 800; color: #e6f6ec; }
     .scorecard .out, .scorecard .in, .scorecard .tot { background: rgba(15,46,25,.7); font-weight: 800; }
 
+    .game-status {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border: 1px solid rgba(46, 150, 78, .55);
+      border-radius: 10px;
+      background: rgba(8, 25, 14, .65);
+      color: var(--ink);
+    }
+    .game-status .gs-title { color: #2ed968; font-weight: 800; font-size: 14px; margin-bottom: 8px; }
+    .game-status .gs-row {
+      display: grid; grid-template-columns: 1fr auto auto;
+      gap: 10px; align-items: center;
+      padding: 6px 0;
+      border-top: 1px solid rgba(159,185,172,.18);
+      font-size: 18px; font-weight: 700;
+    }
+    .game-status .gs-row:first-of-type { border-top: 0; }
+    .game-status .gs-status-line {
+      font-size: 22px; font-weight: 800; text-align: center; padding: 6px 0;
+    }
+    .game-status .gs-status-line .gs-mid { color: #9cb5a8; font-size: 14px; font-weight: 700; margin: 0 10px; }
+    .game-status .lead { color: #2ce06a; }
+    .game-status .trail { color: #e8b634; }
+    .game-status .even { color: #cde2d7; }
+
     @media (max-width: 1200px) {
-      .topbar { grid-template-columns: minmax(180px, 1fr) auto auto auto auto auto auto auto 56px; gap: 6px; padding: 8px 10px; }
+      .topbar { grid-template-columns: minmax(180px, 1fr) auto auto auto auto auto auto auto 48px 48px; gap: 6px; padding: 8px 10px; }
       .topbar button, .pill { padding-inline: 10px; font-size: 15px; min-height: 46px; }
-      .pill { font-size: 16px; }
+      .pill { font-size: 19px; }
       .main { grid-template-columns: 44% 56%; gap: 8px; padding: 8px; }
       .distance-grid { font-size: clamp(20px, 2.4vw, 26px); }
       .score-head, .score-row, .label-row {
@@ -521,6 +547,7 @@
       <button id="saveGame">Save Game</button>
       <button id="loadGame">Load Game</button>
       <button class="primary" id="cardBtn">Card</button>
+      <button id="gpsToggle" class="ghost" title="Toggle GPS" aria-label="Toggle GPS">📍</button>
       <button id="unitsBtn" class="ghost">m</button>
     </header>
 
@@ -553,8 +580,8 @@
           </div>
 
           <div class="controls">
+            <button class="primary" id="setTee">Set Tee</button>
             <button class="ghost" id="clearLayup">Clear Layup</button>
-            <button class="primary" id="gpsToggle">Start GPS</button>
             <div class="nav-row">
               <button class="primary" id="prevHole">&lt;&lt; Prev</button>
               <button class="primary" id="nextHole">Next &gt;&gt;</button>
@@ -576,6 +603,7 @@
             </div>
           </div>
           <div id="scoreRows"></div>
+          <div id="gameStatus" class="game-status"></div>
         </div>
 
       </section>
@@ -633,11 +661,22 @@
           <label for="newGameMode">Game type</label>
           <select id="newGameMode"></select>
         </div>
+        <div style="flex:1">
+          <label for="newGameScoring">Scoring</label>
+          <select id="newGameScoring"></select>
+        </div>
       </div>
       <div class="modal-row">
         <div style="flex:1">
           <label for="newGameCourse">Course</label>
           <select id="newGameCourse"></select>
+        </div>
+        <div style="flex:1">
+          <label for="newGameTeams">Teams (P1+P2 vs P3+P4)</label>
+          <select id="newGameTeams">
+            <option value="no">No</option>
+            <option value="yes">Yes (best ball)</option>
+          </select>
         </div>
       </div>
       <div class="actions">

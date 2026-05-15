@@ -90,6 +90,7 @@ export const COURSES = RAW.map(c => ({
 export const COURSE_NAMES = COURSES.map(c => c.name);
 export const DEFAULT_COURSE = 'Paarl-Winelands';
 export const SCORING_MODES = ['Stroke Play', 'Match Play'];
+export const SCORING_TYPES = ['Points', 'Net Score'];
 
 export function getCourse(name) {
   return COURSES.find(c => c.name === name) || COURSES[0];

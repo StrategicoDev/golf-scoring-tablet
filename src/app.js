@@ -1,5 +1,5 @@
 import { supabaseConfigured, GOOGLE_MAPS_API_KEY } from './config.js';
-import { COURSE_NAMES, SCORING_MODES, DEFAULT_COURSE } from './courses.js';
+import { COURSE_NAMES, SCORING_MODES, SCORING_TYPES, DEFAULT_COURSE } from './courses.js';
 import { state, hole, hydrateLocal, persistLocal, resetGameState, MAX_PLAYERS } from './state.js';
 import { clamp } from './scoring.js';
 import {
@@ -18,7 +18,7 @@ const $ = (id) => document.getElementById(id);
 initMap({ render, toast, gpsStatus: updateGpsStatus });
 
 async function handleSave() {
-  if (!isSignedIn()) { toast('Sign in first to save'); return; }
+  if (!isSignedIn()) { openModal('authModal'); toast('Sign in to save'); return; }
   persistLocal();
   try {
     await saveCloud();
@@ -30,7 +30,7 @@ async function handleSave() {
 }
 
 async function openLoadModal() {
-  if (!isSignedIn()) { toast('Sign in first to load cloud games'); return; }
+  if (!isSignedIn()) { openModal('authModal'); toast('Sign in to load saved games'); return; }
   openModal('loadModal');
   $('gameList').innerHTML = '<div class="empty">Loading…</div>';
   try {
@@ -43,14 +43,16 @@ async function openLoadModal() {
 }
 
 function populateNewGameModal() {
-  const courseSel = $('newGameCourse');
-  courseSel.innerHTML = COURSE_NAMES.map(n =>
+  $('newGameCourse').innerHTML = COURSE_NAMES.map(n =>
     `<option value="${n}" ${n === state.course ? 'selected' : ''}>${n}</option>`
   ).join('');
-  const modeSel = $('newGameMode');
-  modeSel.innerHTML = SCORING_MODES.map(m =>
+  $('newGameMode').innerHTML = SCORING_MODES.map(m =>
     `<option value="${m}" ${m === state.scoringMode ? 'selected' : ''}>${m}</option>`
   ).join('');
+  $('newGameScoring').innerHTML = SCORING_TYPES.map(s =>
+    `<option value="${s}" ${s === state.scoringType ? 'selected' : ''}>${s}</option>`
+  ).join('');
+  $('newGameTeams').value = state.teams ? 'yes' : 'no';
 }
 
 function openNewGameModal() {
@@ -61,12 +63,14 @@ function openNewGameModal() {
 function startNewGame() {
   const course = $('newGameCourse').value || DEFAULT_COURSE;
   const scoringMode = $('newGameMode').value || 'Stroke Play';
-  resetGameState({ course, scoringMode });
+  const scoringType = $('newGameScoring').value || 'Points';
+  const teams = $('newGameTeams').value === 'yes';
+  resetGameState({ course, scoringMode, scoringType, teams });
   persistLocal();
   render();
   reCenterOnHole();
   closeModal('newGameModal');
-  toast(`New ${scoringMode} game · ${course}`);
+  toast(`New ${scoringMode} · ${scoringType}${teams ? ' · Teams' : ''} · ${course}`);
 }
 
 function bindEvents() {
@@ -83,6 +87,14 @@ function bindEvents() {
   $('gpsToggle').addEventListener('click', () => {
     if (isGpsLive()) { stopLiveGps(); updateGpsBtn(); }
     else { startLiveGps(); updateGpsBtn(); }
+  });
+  $('setTee').addEventListener('click', () => {
+    const you = hole().you;
+    if (!you || !Number.isFinite(you.lat)) { toast('Need GPS fix to set tee'); return; }
+    hole().tee = { lat: you.lat, lng: you.lng };
+    persistLocal();
+    render();
+    toast('Tee set to current GPS');
   });
   $('clearLayup').addEventListener('click', () => { hole().layup = null; render(); toast('Layup cleared'); });
   $('prevHole').addEventListener('click', () => {
@@ -135,9 +147,9 @@ function bindEvents() {
 
   function updateGpsBtn() {
     const btn = $('gpsToggle');
-    btn.textContent = isGpsLive() ? 'Stop GPS' : 'Start GPS';
-    btn.classList.toggle('primary', !isGpsLive());
-    btn.classList.toggle('danger', isGpsLive());
+    btn.textContent = '📍';
+    btn.title = isGpsLive() ? 'Stop GPS' : 'Start GPS';
+    btn.classList.toggle('active', isGpsLive());
   }
   updateGpsBtn();
 

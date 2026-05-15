@@ -16,6 +16,8 @@ function freshPlayers() {
 export const state = {
   course: DEFAULT_COURSE,
   scoringMode: 'Stroke Play',
+  scoringType: 'Points',
+  teams: false,
   units: 'm',
   currentHole: 1,
   holes: freshHoles(),
@@ -31,16 +33,30 @@ export const state = {
 
 export const hole = () => state.holes[state.currentHole - 1];
 
-export function resetGameState({ course = DEFAULT_COURSE, scoringMode = 'Stroke Play' } = {}) {
+export function resetGameState({
+  course = DEFAULT_COURSE,
+  scoringMode = 'Stroke Play',
+  scoringType = 'Points',
+  teams = false
+} = {}) {
   state.course = course;
   state.scoringMode = scoringMode;
+  state.scoringType = scoringType;
+  state.teams = teams;
   state.currentHole = 1;
   state.holes = freshHoles(course);
-  state.players = freshPlayers();
+  // Teams need at least 2 players to be useful; spin up 4 so both teams have two.
+  state.players = teams ? [
+    { id: crypto.randomUUID(), name: 'Player 1', handicap: 0, scores: {} },
+    { id: crypto.randomUUID(), name: 'Player 2', handicap: 0, scores: {} },
+    { id: crypto.randomUUID(), name: 'Player 3', handicap: 0, scores: {} },
+    { id: crypto.randomUUID(), name: 'Player 4', handicap: 0, scores: {} }
+  ] : freshPlayers();
   state.currentCloudGameId = '';
 }
 
-const SAVE_KEYS = ['course', 'scoringMode', 'units', 'currentHole', 'holes', 'players',
+const SAVE_KEYS = ['course', 'scoringMode', 'scoringType', 'teams', 'units',
+                   'currentHole', 'holes', 'players',
                    'activeMapMode', 'googleMapsApiKey', 'currentCloudGameId', 'mapType'];
 
 export function persistLocal() {
