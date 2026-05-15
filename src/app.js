@@ -12,7 +12,7 @@ import {
   updatePlayerRowCells
 } from './ui.js';
 import { loadSession, signIn, signUp, signOut, isSignedIn } from './auth.js';
-import { saveCloud, listCloudGames, loadCloudGame, deleteCloudGame } from './cloud.js';
+import { saveCloud, listCloudGames, loadCloudGame, deleteCloudGame, shareLeaderboard } from './cloud.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -170,6 +170,17 @@ function bindEvents() {
   $('loadGame').addEventListener('click', openLoadModal);
   $('cardBtn').addEventListener('click', () => { renderScorecard(); openModal('cardModal'); });
   $('cardClose').addEventListener('click', () => closeModal('cardModal'));
+  $('shareBtn').addEventListener('click', async () => {
+    if (!isSignedIn()) { openModal('authModal'); toast('Sign in to share'); return; }
+    try {
+      const url = await shareLeaderboard();
+      try { await navigator.clipboard.writeText(url); toast('Share link copied'); }
+      catch { prompt('Copy this link:', url); }
+    } catch (e) {
+      console.error(e);
+      toast(e.message || 'Share failed');
+    }
+  });
   $('youTeeRow').addEventListener('click', openDriveModal);
   $('driveClose').addEventListener('click', () => closeModal('driveModal'));
   $('driveList').addEventListener('click', (e) => {

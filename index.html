@@ -102,7 +102,7 @@
 
     .topbar {
       display: grid;
-      grid-template-columns: minmax(220px, 1fr) auto auto auto auto auto auto auto 56px 56px;
+      grid-template-columns: minmax(220px, 1fr) auto auto auto auto auto auto auto 56px 56px 56px;
       align-items: center;
       gap: 8px;
       padding: 10px 12px;
@@ -136,7 +136,7 @@
     }
 
     .topbar button { white-space: nowrap; min-height: 50px; font-size: 17px; font-weight: 800; padding: 8px 14px; }
-    #unitsBtn, #gpsToggle { font-size: 19px; font-weight: 800; padding: 6px; }
+    #unitsBtn, #gpsToggle, #shareBtn { font-size: 19px; font-weight: 800; padding: 6px; }
     #gpsToggle.active { background: linear-gradient(180deg, #25bf5c, #148840); color: #ecfff3; border-color: #35df70; }
 
     .main {
@@ -636,7 +636,7 @@
     .game-status .even { color: #cde2d7; }
 
     @media (max-width: 1200px) {
-      .topbar { grid-template-columns: minmax(180px, 1fr) auto auto auto auto auto auto auto 48px 48px; gap: 6px; padding: 8px 10px; }
+      .topbar { grid-template-columns: minmax(180px, 1fr) auto auto auto auto auto auto auto 48px 48px 48px; gap: 6px; padding: 8px 10px; }
       .topbar button, .pill { padding-inline: 10px; font-size: 15px; min-height: 46px; }
       .pill { font-size: 19px; }
       .main { grid-template-columns: 44% 56%; gap: 8px; padding: 8px; }
@@ -674,6 +674,7 @@
       <button id="saveGame">Save Game</button>
       <button id="loadGame">Load Game</button>
       <button class="primary" id="cardBtn">Card</button>
+      <button id="shareBtn" class="ghost" title="Copy share link" aria-label="Share leaderboard">🔗</button>
       <button id="gpsToggle" class="ghost" title="Toggle GPS" aria-label="Toggle GPS">📍</button>
       <button id="unitsBtn" class="ghost">m</button>
     </header>

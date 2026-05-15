@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Live Leaderboard</title>
+  <style>
+    :root {
+      --bg: #04100a;
+      --panel: rgba(3, 11, 7, .9);
+      --line: rgba(46, 150, 78, .55);
+      --green-3: #2ce06a;
+      --ink: #e8f2ec;
+      --muted: #88a596;
+      font-family: Inter, Roboto, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: radial-gradient(circle at 50% -10%, rgba(36,151,75,.2), transparent 40%), var(--bg); color: var(--ink); min-height: 100%; }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 16px; }
+    .hdr { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 4px 14px; border-bottom: 1px solid var(--line); }
+    .hdr .title { color: var(--green-3); font-size: 22px; font-weight: 900; }
+    .hdr .sub { color: var(--muted); font-size: 13px; font-weight: 700; }
+    .meta { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 4px; }
+    .pill { padding: 6px 12px; border: 1px solid var(--line); border-radius: 9px; background: #08130d; font-weight: 700; font-size: 14px; color: #cde2d7; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin: 12px 0; box-shadow: 0 8px 26px rgba(0,0,0,.3); }
+    .row { display: grid; grid-template-columns: 32px 1fr auto auto; align-items: center; gap: 10px; padding: 10px 4px; border-top: 1px solid rgba(159,185,172,.18); }
+    .row:first-of-type { border-top: 0; }
+    .pos { font-size: 18px; font-weight: 900; color: var(--green-3); text-align: center; }
+    .name { font-size: 18px; font-weight: 800; }
+    .sub { color: var(--muted); font-size: 12px; font-weight: 700; }
+    .val { font-size: 22px; font-weight: 900; min-width: 64px; text-align: right; }
+    .delta { color: var(--muted); font-size: 12px; font-weight: 700; text-align: right; min-width: 80px; }
+    .lead .name { color: #2ce06a; }
+    .lead .pos { color: #2ce06a; }
+    .empty { color: var(--muted); text-align: center; padding: 30px; }
+
+    /* Match-play bar (slim, for phones) */
+    .mp-bar {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 2px solid #1f7d43;
+      min-height: 96px;
+      box-shadow: 0 6px 20px rgba(0,0,0,.35);
+    }
+    .mp-side { padding: 12px 14px; display: flex; flex-direction: column; justify-content: center; gap: 4px; min-width: 0; }
+    .mp-side .name { font-size: 18px; }
+    .mp-side .sub { color: rgba(255,255,255,.85); }
+    .mp-side .status { font-size: 26px; font-weight: 900; margin-top: 6px; color: #fff; line-height: 1; }
+    .mp-side .status.faded { opacity: .5; font-size: 20px; }
+    .mp-side.left  { background: linear-gradient(135deg, #1c873d, #145e2a); text-align: left; }
+    .mp-side.right { background: linear-gradient(225deg, #1c873d, #145e2a); text-align: right; align-items: flex-end; }
+    .mp-side.trail { background: linear-gradient(135deg, #3c6376, #28465a); }
+    .mp-side.right.trail { background: linear-gradient(225deg, #3c6376, #28465a); }
+    .mp-side.tied  { background: linear-gradient(135deg, #1d3d4a, #0c2230); }
+    .mp-side.right.tied { background: linear-gradient(225deg, #1d3d4a, #0c2230); }
+    .mp-center { background: linear-gradient(180deg, #1b5fcc, #0e3683); color: #fff; padding: 10px 18px; display: grid; place-items: center; text-align: center; font-weight: 900; min-width: 96px; }
+    .mp-center.done { background: linear-gradient(180deg, #d49a16, #8a5e08); color: #fff8d8; }
+    .mp-center.dormie { background: linear-gradient(180deg, #c4651e, #7e3e0d); color: #fff1d6; }
+    .mp-center .lbl { font-size: 11px; letter-spacing: .18em; color: rgba(255,255,255,.88); }
+    .mp-center .num { font-size: 30px; font-weight: 900; line-height: 1; margin-top: 4px; }
+    .footnote { color: var(--muted); font-size: 12px; text-align: center; margin: 18px 0 10px; }
+  </style>
+  <script src="./config.js"></script>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hdr">
+      <div>
+        <div class="title" id="title">Loading…</div>
+        <div class="sub" id="subtitle"></div>
+      </div>
+      <div class="sub" id="updated"></div>
+    </div>
+    <div class="meta" id="meta"></div>
+    <div id="status"></div>
+    <div class="card" id="board"></div>
+    <div class="footnote">Live · refreshes every 15 s. Live Leaderboard powered by Strategico Golf Tablet.</div>
+  </div>
+
+  <script>
+    const CFG = window.GOLF_APP_CONFIG || {};
+    const url = new URL(location.href);
+    const token = url.searchParams.get('t');
+    const REFRESH_MS = 15000;
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+
+    if (!token) {
+      $('title').textContent = 'Missing share token';
+      $('subtitle').textContent = 'This URL needs a ?t=… parameter.';
+    } else if (!CFG.supabaseUrl || !CFG.supabaseAnonKey) {
+      $('title').textContent = 'Server not configured';
+    } else {
+      tick();
+      setInterval(tick, REFRESH_MS);
+    }
+
+    async function tick() {
+      try {
+        const resp = await fetch(`${CFG.supabaseUrl.replace(/\/$/, '')}/rest/v1/rpc/get_leaderboard`, {
+          method: 'POST',
+          headers: { apikey: CFG.supabaseAnonKey, Authorization: `Bearer ${CFG.supabaseAnonKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        const data = await resp.json();
+        if (!data) {
+          $('title').textContent = 'Game not found';
+          $('subtitle').textContent = 'The share link is invalid or the game was deleted.';
+          return;
+        }
+        render(data);
+      } catch (e) {
+        console.error(e);
+        $('updated').textContent = 'Connection error';
+      }
+    }
+
+    function strokesForHole(handicap, si) {
+      const h = Math.max(0, Number(handicap) || 0);
+      const base = Math.floor(h / 18);
+      const extra = h % 18;
+      return base + (si <= extra ? 1 : 0);
+    }
+    function stableford(net, par) {
+      if (!Number.isFinite(net)) return 0;
+      return Math.max(0, par - net + 2);
+    }
+
+    function entityNetForHole(entity, h) {
+      const members = entity.members || [entity];
+      let best = null;
+      for (const m of members) {
+        const g = Number(m.scores?.[h.number]) || 0;
+        if (!g) continue;
+        const net = g - strokesForHole(m.handicap, h.strokeIndex);
+        if (best === null || net < best) best = net;
+      }
+      return best;
+    }
+
+    function totals(entity, holes) {
+      let gross = 0, net = 0, points = 0, par = 0, holesPlayed = 0;
+      for (const h of holes) {
+        const members = entity.members || [entity];
+        let g = null;
+        for (const m of members) {
+          const v = Number(m.scores?.[h.number]) || 0;
+          if (!v) continue;
+          if (g === null || v < g) g = v;
+        }
+        if (g === null) continue;
+        const n = entityNetForHole(entity, h);
+        gross += g;
+        net += n;
+        points += stableford(n, h.par);
+        par += h.par;
+        holesPlayed += 1;
+      }
+      return { gross, net, points, toPar: net - par, holesPlayed };
+    }
+
+    function matchPlayStatus(a, b, holes, currentHole) {
+      let aWins = 0, bWins = 0, played = 0;
+      for (let i = 1; i <= currentHole; i++) {
+        const h = holes[i - 1]; if (!h) continue;
+        const na = entityNetForHole(a, h);
+        const nb = entityNetForHole(b, h);
+        if (na === null || nb === null) continue;
+        played += 1;
+        if (na < nb) aWins += 1;
+        else if (nb < na) bWins += 1;
+      }
+      const holesLeft = 18 - played;
+      const diff = aWins - bWins;
+      const up = Math.abs(diff);
+      let lead = 'even';
+      if (diff > 0) lead = 'a';
+      else if (diff < 0) lead = 'b';
+      const done = up > holesLeft;
+      const label = done ? `${up} & ${holesLeft}` : (lead === 'even' ? 'AS' : `${up} UP`);
+      return { lead, up, holesPlayed: played, holesLeft, done, label };
+    }
+
+    function render(data) {
+      const settings = data.settings || {};
+      const teams = !!settings.teams;
+      const players = data.players || [];
+      const holes = data.holes || [];
+      $('title').textContent = `${data.course || 'Game'}`;
+      $('subtitle').textContent = `Hole ${data.current_hole || 1} · ${data.scoring_mode || 'Stroke Play'}`;
+      $('updated').textContent = data.updated_at ? `Updated ${new Date(data.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '';
+      $('meta').innerHTML = [
+        data.scoring_mode && `<div class="pill">${esc(data.scoring_mode)}</div>`,
+        settings.scoringType && `<div class="pill">${esc(settings.scoringType)}</div>`,
+        teams ? '<div class="pill">Teams · Best Ball</div>' : '',
+        settings.units && `<div class="pill">${settings.units === 'yards' ? 'yards' : 'metres'}</div>`
+      ].filter(Boolean).join('');
+
+      const entities = teams
+        ? [
+            { name: 'Team 1', members: [players[0], players[1]].filter(Boolean) },
+            { name: 'Team 2', members: [players[2], players[3]].filter(Boolean) }
+          ].filter(t => t.members.length)
+        : players.map(p => ({ name: p.name, handicap: p.handicap, members: [p] }));
+
+      // Match Play status bar
+      $('status').innerHTML = '';
+      if ((data.scoring_mode === 'Match Play') && entities.length === 2) {
+        const [a, b] = entities;
+        const m = matchPlayStatus(a, b, holes, data.current_hole || 1);
+        const dormie = !m.done && m.up > 0 && m.up === m.holesLeft;
+        const sideClass = (forSide) => m.lead === 'even' ? 'tied' : (m.lead === forSide ? '' : 'trail');
+        const sub = (e) => teams ? e.members.map(p => p.name).join(' + ') : `HCP ${e.handicap || 0}`;
+        let aStatus = 'AS', bStatus = 'AS', aFade = false, bFade = false;
+        let centerCls = '', centerLbl = 'THRU', centerNum = String(m.holesPlayed);
+        if (m.done) {
+          centerCls = 'done'; centerLbl = 'FINAL'; centerNum = '';
+          if (m.lead === 'a') { aStatus = `WON ${m.label}`; bStatus = '—'; bFade = true; }
+          else if (m.lead === 'b') { bStatus = `WON ${m.label}`; aStatus = '—'; aFade = true; }
+          else { aStatus = bStatus = 'HALVED'; }
+        } else if (m.lead === 'even') { aStatus = bStatus = 'AS'; }
+        else if (m.lead === 'a') { aStatus = `${m.up} UP`; bStatus = `${m.up} DN`; }
+        else { aStatus = `${m.up} DN`; bStatus = `${m.up} UP`; }
+        if (dormie) centerCls = 'dormie';
+        $('status').innerHTML = `
+          <div class="mp-bar">
+            <div class="mp-side left ${sideClass('a')}">
+              <div class="name">${esc(a.name)}</div>
+              <div class="sub">${esc(sub(a))}</div>
+              <div class="status ${aFade ? 'faded' : ''}">${esc(aStatus)}</div>
+            </div>
+            <div class="mp-center ${centerCls}">
+              <div class="lbl">${esc(centerLbl)}</div>
+              ${centerNum ? `<div class="num">${esc(centerNum)}</div>` : ''}
+            </div>
+            <div class="mp-side right ${sideClass('b')}">
+              <div class="name">${esc(b.name)}</div>
+              <div class="sub">${esc(sub(b))}</div>
+              <div class="status ${bFade ? 'faded' : ''}">${esc(bStatus)}</div>
+            </div>
+          </div>`;
+        $('board').innerHTML = '';
+        return;
+      }
+
+      // Stroke play leaderboard
+      const useNet = settings.scoringType === 'Net Score';
+      const rows = entities.map(e => ({ entity: e, totals: totals(e, holes) }));
+      if (useNet) rows.sort((x, y) => x.totals.toPar - y.totals.toPar);
+      else rows.sort((x, y) => y.totals.points - x.totals.points);
+      const fmt = n => n === 0 ? 'E' : (n > 0 ? `+${n}` : `${n}`);
+      $('board').innerHTML = rows.length === 0
+        ? '<div class="empty">No scores yet.</div>'
+        : rows.map((r, i) => {
+            const sub = teams
+              ? r.entity.members.map(p => p.name).join(' + ')
+              : `HCP ${r.entity.handicap || 0}`;
+            const big = useNet ? fmt(r.totals.toPar) : `${r.totals.points} pts`;
+            const small = useNet ? `Net ${r.totals.net}` : fmt(r.totals.toPar);
+            return `<div class="row ${i === 0 && rows.length > 1 ? 'lead' : ''}">
+              <div class="pos">${i + 1}</div>
+              <div>
+                <div class="name">${esc(r.entity.name)}</div>
+                <div class="sub">${esc(sub)} · Thru ${r.totals.holesPlayed}</div>
+              </div>
+              <div class="val">${esc(big)}</div>
+              <div class="delta">${esc(small)}</div>
+            </div>`;
+          }).join('');
+    }
+  </script>
+</body>
+</html>

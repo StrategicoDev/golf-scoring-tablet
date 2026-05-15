@@ -21,6 +21,7 @@ export const state = {
   matchAnnounced: { dormie: false, done: false },
   matchWinner: null,
   matchContinue: true,
+  shareToken: null,
   units: 'm',
   currentHole: 1,
   holes: freshHoles(),
@@ -59,12 +60,14 @@ export function resetGameState({
   state.matchAnnounced = { dormie: false, done: false };
   state.matchWinner = null;
   state.matchContinue = true;
+  // Fresh share token per game so prior viewers don't follow a new game.
+  state.shareToken = crypto.randomUUID();
 }
 
 const SAVE_KEYS = ['course', 'scoringMode', 'scoringType', 'teams', 'units',
                    'currentHole', 'holes', 'players',
                    'activeMapMode', 'googleMapsApiKey', 'currentCloudGameId', 'mapType',
-                   'matchAnnounced', 'matchWinner', 'matchContinue'];
+                   'matchAnnounced', 'matchWinner', 'matchContinue', 'shareToken'];
 
 export function persistLocal() {
   const slice = {};

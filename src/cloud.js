@@ -23,6 +23,7 @@ function autoName() {
 }
 
 function payload() {
+  if (!state.shareToken) state.shareToken = crypto.randomUUID();
   return {
     name: autoName(),
     course: state.course,
@@ -30,7 +31,14 @@ function payload() {
     scoring_mode: state.scoringMode,
     players: state.players,
     holes: state.holes,
-    user_id: state.userId
+    user_id: state.userId,
+    share_token: state.shareToken,
+    settings: {
+      scoringType: state.scoringType,
+      teams: state.teams,
+      units: state.units,
+      matchWinner: state.matchWinner
+    }
   };
 }
 
@@ -71,6 +79,16 @@ export async function loadCloudGame(id) {
   applyCloudRow(rows[0]);
   persistLocal();
   return true;
+}
+
+export async function shareLeaderboard() {
+  // Ensures the latest snapshot is in the cloud and returns the public viewer URL.
+  if (!supabaseConfigured()) throw new Error('Supabase not configured');
+  if (!isSignedIn()) throw new Error('Sign in to share');
+  if (!state.shareToken) state.shareToken = crypto.randomUUID();
+  await saveCloud();
+  const base = location.origin + location.pathname.replace(/[^/]*$/, '');
+  return `${base}leaderboard.html?t=${state.shareToken}`;
 }
 
 export async function deleteCloudGame(id) {
