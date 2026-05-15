@@ -202,40 +202,52 @@ export function renderGameStatus() {
     }
 
     const dormie = !m.done && m.up > 0 && m.up === m.holesLeft;
+
+    // Per-side status text + center content.
+    let aStatus = 'AS', bStatus = 'AS';
+    let aStatusFaded = false, bStatusFaded = false;
     let centerCls = '';
-    let bigTxt = 'AS';
-    let bottom = '';
-    let bottomNum = '';
+    let centerTop = 'THRU';
+    let centerBottom = String(m.holesPlayed);
 
     if (m.done) {
       centerCls = 'done';
-      bigTxt = m.label;
-      bottom = 'MATCH';
+      centerTop = 'FINAL';
+      centerBottom = '';
+      if (m.lead === 'a') { aStatus = `WON ${m.label}`; bStatus = '—'; bStatusFaded = true; }
+      else if (m.lead === 'b') { bStatus = `WON ${m.label}`; aStatus = '—'; aStatusFaded = true; }
+      else { aStatus = bStatus = 'HALVED'; }
     } else if (m.lead === 'even') {
-      bigTxt = 'AS';
-      bottom = 'THRU';
-      bottomNum = String(m.holesPlayed);
+      aStatus = bStatus = 'AS';
+    } else if (m.lead === 'a') {
+      aStatus = `${m.up} UP`;
+      bStatus = `${m.up} DN`;
     } else {
-      bigTxt = `${m.up} UP`;
-      if (dormie) { centerCls = 'dormie'; bottom = 'DORMIE'; bottomNum = String(m.holesPlayed); }
-      else { bottom = 'THRU'; bottomNum = String(m.holesPlayed); }
+      aStatus = `${m.up} DN`;
+      bStatus = `${m.up} UP`;
+    }
+    if (dormie) centerCls = 'dormie';
+
+    function statusHtml(text, faded) {
+      return `<div class="mp-status ${faded ? 'faded' : ''}">${escapeHtml(text)}</div>`;
     }
 
     el.innerHTML = `
-      <div class="gs-title">${escapeHtml(title)}</div>
+      <div class="gs-title">${escapeHtml(title)}${dormie ? ' · DORMIE' : ''}</div>
       <div class="mp-bar">
         <div class="mp-side left ${sideClass('a')}">
           <div class="mp-name">${escapeHtml(a.name)}</div>
           <div class="mp-sub">${escapeHtml(sub(a))}</div>
+          ${statusHtml(aStatus, aStatusFaded)}
         </div>
         <div class="mp-center ${centerCls}">
-          <div class="mp-big">${escapeHtml(bigTxt)}</div>
-          ${bottom ? `<div class="mp-thru">${escapeHtml(bottom)}</div>` : ''}
-          ${bottomNum ? `<div class="mp-thru-num">${escapeHtml(bottomNum)}</div>` : ''}
+          <div class="mp-thru">${escapeHtml(centerTop)}</div>
+          ${centerBottom ? `<div class="mp-thru-num">${escapeHtml(centerBottom)}</div>` : ''}
         </div>
         <div class="mp-side right ${sideClass('b')}">
           <div class="mp-name">${escapeHtml(b.name)}</div>
           <div class="mp-sub">${escapeHtml(sub(b))}</div>
+          ${statusHtml(bStatus, bStatusFaded)}
         </div>
       </div>`;
     return;
