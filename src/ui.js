@@ -188,17 +188,55 @@ export function renderGameStatus() {
     const [a, b] = entities;
     const m = matchPlayStatus(a, b);
     state.matchStatusCache = { a: a.name, b: b.name, ...m };
-    const leftCls = m.lead === 'a' ? 'lead' : (m.lead === 'b' ? 'trail' : 'even');
-    const rightCls = m.lead === 'b' ? 'lead' : (m.lead === 'a' ? 'trail' : 'even');
-    const leftTag = m.lead === 'a' ? `${m.up}Up` : (m.lead === 'b' ? `${m.up}Dn` : 'AS');
-    const rightTag = m.lead === 'b' ? `${m.up}Up` : (m.lead === 'a' ? `${m.up}Dn` : 'AS');
-    const mid = m.done ? `Match · ${m.label}` : `After ${m.holesPlayed} hole${m.holesPlayed === 1 ? '' : 's'} · ${m.holesLeft} to play`;
+
+    function sideClass(forSide) {
+      if (m.lead === 'even') return 'tied';
+      if (m.lead === forSide) return ''; // green lead
+      return 'trail';
+    }
+    function sub(entity) {
+      // Solo: HCP X. Teams: list members.
+      if (state.teams) return entity.members.map(p => p.name).join(' + ');
+      const p = entity.members[0];
+      return p ? `HCP ${p.handicap || 0}` : '';
+    }
+
+    const dormie = !m.done && m.up > 0 && m.up === m.holesLeft;
+    let centerCls = '';
+    let bigTxt = 'AS';
+    let bottom = '';
+    let bottomNum = '';
+
+    if (m.done) {
+      centerCls = 'done';
+      bigTxt = m.label;
+      bottom = 'MATCH';
+    } else if (m.lead === 'even') {
+      bigTxt = 'AS';
+      bottom = 'THRU';
+      bottomNum = String(m.holesPlayed);
+    } else {
+      bigTxt = `${m.up} UP`;
+      if (dormie) { centerCls = 'dormie'; bottom = 'DORMIE'; bottomNum = String(m.holesPlayed); }
+      else { bottom = 'THRU'; bottomNum = String(m.holesPlayed); }
+    }
+
     el.innerHTML = `
       <div class="gs-title">${escapeHtml(title)}</div>
-      <div class="gs-status-line">
-        <span class="${leftCls}">${escapeHtml(a.name)} [${leftTag}]</span>
-        <span class="gs-mid">${escapeHtml(mid)}</span>
-        <span class="${rightCls}">[${rightTag}] ${escapeHtml(b.name)}</span>
+      <div class="mp-bar">
+        <div class="mp-side left ${sideClass('a')}">
+          <div class="mp-name">${escapeHtml(a.name)}</div>
+          <div class="mp-sub">${escapeHtml(sub(a))}</div>
+        </div>
+        <div class="mp-center ${centerCls}">
+          <div class="mp-big">${escapeHtml(bigTxt)}</div>
+          ${bottom ? `<div class="mp-thru">${escapeHtml(bottom)}</div>` : ''}
+          ${bottomNum ? `<div class="mp-thru-num">${escapeHtml(bottomNum)}</div>` : ''}
+        </div>
+        <div class="mp-side right ${sideClass('b')}">
+          <div class="mp-name">${escapeHtml(b.name)}</div>
+          <div class="mp-sub">${escapeHtml(sub(b))}</div>
+        </div>
       </div>`;
     return;
   }
