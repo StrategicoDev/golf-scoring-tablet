@@ -25,8 +25,13 @@ async function handleSave() {
     await saveCloud();
     toast('Game saved');
   } catch (e) {
-    console.error(e);
-    toast('Saved locally · cloud failed');
+    console.error('saveCloud failed:', e);
+    let msg = e.message || String(e);
+    try {
+      const parsed = JSON.parse(msg);
+      msg = parsed.message || parsed.error_description || parsed.error || msg;
+    } catch { /* not JSON */ }
+    toast(`Cloud failed: ${msg.slice(0, 140)}`);
   }
 }
 
